@@ -158,10 +158,10 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function Spout({ x, y, scale = 1 }) {
+    function Spout({ x, y, scale = 1, still = false }) {
       return h(
         'g',
-        { transform: `translate(${x} ${y}) scale(${scale})`, className: 'wv-spout' },
+        { transform: `translate(${x} ${y}) scale(${scale})`, className: still ? '' : 'wv-spout' },
         h('path', { d: 'M0 0c-2-8-8-12-14-12M0 0c2-8 8-12 14-12M0 0v-16', stroke: '#9fd3ff', strokeWidth: 3, fill: 'none', strokeLinecap: 'round' }),
       )
     }
@@ -191,31 +191,150 @@ window.__ModuleLoader__.load({
       return h('g', { className: 'wv-waves' }, ...paths)
     }
 
-    function SeaDecor({ sea, rng, ink }) {
+    /*
+     * 每张明信片画的是「这一趟」：
+     * - 回港时刻定天色（清晨 / 白天 / 傍晚 / 夜里），夜里有月亮和星星；
+     * - 天气按这张卡随机（晴 / 多云 / 雨 / 彩虹）；
+     * - 大肥鱼的姿势随机（游 / 喷水 / 跃出水面 / 探头）；
+     * - 画里的字和物件来自它带回的东西：弹幕是视频标题片段，小房子门牌是仓库的语言，气泡是帖子开头。
+     */
+
+    function timeOfDay(t) {
+      const hr = new Date(t).getHours()
+      if (hr >= 5 && hr < 8) return 'dawn'
+      if (hr >= 8 && hr < 17) return 'day'
+      if (hr >= 17 && hr < 20) return 'dusk'
+      return 'night'
+    }
+
+    const TIME_SKIES = {
+      dawn: ['#ffc4a3', '#eef4ff'],
+      dusk: ['#ef7f63', '#ffd9a6'],
+      night: ['#0f1b3a', '#2b3b72'],
+    }
+
+    function cardSky(seaId, pal, tod) {
+      if (seaId === 'paper' || seaId === 'fog' || tod === 'day') return pal.sky
+      return TIME_SKIES[tod]
+    }
+
+    /** 从带回的东西里取几个短词，画进插画。 */
+    function tokensFrom(card) {
+      const items = card.items || []
+      const short = (s, n) => {
+        const t = String(s || '').replace(/[【】\[\]（）()「」《》|]/g, ' ').replace(/\s+/g, ' ').trim()
+        return t.length > n ? t.slice(0, n) : t
+      }
+      if (card.sea === 'code') {
+        const ABBR = { TypeScript: 'TS', JavaScript: 'JS', 'Jupyter Notebook': 'Jupyter', 'C++': 'C++', 'C#': 'C#', Kotlin: 'Kotlin', Python: 'Python' }
+        return items.map((it) => {
+          const lang = String(it.meta || '').split('·')[1]
+          const name = lang && lang.trim() ? lang.trim() : String(it.title || '').split('/').pop()
+          return short(ABBR[name] || name, 7)
+        })
+      }
+      if (card.sea === 'danmaku') return items.map((it) => short(it.title, 7))
+      if (card.sea === 'chat') return items.map((it) => short(it.title, 4))
+      return items.map((it) => short(it.title, 10))
+    }
+
+    function pickWeather(rng, tod, seaId) {
+      if (seaId === 'paper' || seaId === 'fog') return 'clear'
+      const r = rng()
+      if (r < 0.48) return 'clear'
+      if (r < 0.72) return 'clouds'
+      if (r < 0.86) return 'rain'
+      return tod === 'night' ? 'clouds' : 'rainbow'
+    }
+
+    function Cloud({ x, y, s = 1, color = '#ffffff', opacity = 0.9 }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y}) scale(${s})`, opacity },
+        h('ellipse', { cx: 0, cy: 0, rx: 18, ry: 8, fill: color }),
+        h('ellipse', { cx: 12, cy: -5, rx: 12, ry: 9, fill: color }),
+        h('ellipse', { cx: -10, cy: -3, rx: 10, ry: 7, fill: color }),
+      )
+    }
+
+    function SkyLayer({ tod, weather, rng, seaId }) {
+      const out = []
+      if (seaId !== 'paper' && seaId !== 'fog') {
+        if (tod === 'night') {
+          for (let i = 0; i < 14; i += 1) out.push(h('circle', { key: `s${i}`, cx: rng() * 300, cy: rng() * 100, r: 0.6 + rng() * 1.2, fill: '#fff', opacity: 0.5 + rng() * 0.5 }))
+          const mx = 30 + rng() * 180
+          out.push(h('circle', { key: 'moon', cx: mx, cy: 30, r: 11, fill: '#fff6d5' }), h('circle', { key: 'moon2', cx: mx + 5, cy: 26, r: 10, fill: TIME_SKIES.night[0] }))
+        } else if (tod === 'dawn' || tod === 'dusk') {
+          const sx = tod === 'dawn' ? 40 + rng() * 60 : 180 + rng() * 60
+          out.push(h('circle', { key: 'sun', cx: sx, cy: 124, r: 22, fill: tod === 'dawn' ? '#ffe2a8' : '#ffb26b', opacity: 0.95 }))
+        } else if (weather === 'clear') {
+          out.push(h('circle', { key: 'sun', cx: 24 + rng() * 40, cy: 26, r: 12, fill: '#ffe58a', opacity: 0.9 }))
+        }
+      }
+      if (weather === 'clouds' || weather === 'rain') {
+        const n = 2 + Math.floor(rng() * 2)
+        const color = weather === 'rain' ? '#c9d2df' : '#ffffff'
+        for (let i = 0; i < n; i += 1) out.push(h(Cloud, { key: `c${i}`, x: 30 + rng() * 200, y: 22 + rng() * 34, s: 0.8 + rng() * 0.7, color }))
+      }
+      if (weather === 'rainbow') {
+        const cx = 60 + rng() * 180
+        const colors = ['#ff8a80', '#ffd180', '#fff59d', '#a5d6a7', '#90caf9', '#b39ddb']
+        colors.forEach((c, i) => out.push(h('path', { key: `r${i}`, d: `M${cx - 70 + i * 4} 124a${70 - i * 4} ${70 - i * 4} 0 0 1 ${140 - i * 8} 0`, stroke: c, strokeWidth: 4, fill: 'none', opacity: 0.55 })))
+      }
+      return h('g', null, ...out)
+    }
+
+    function RainLayer({ rng }) {
+      const lines = []
+      for (let i = 0; i < 34; i += 1) {
+        const x = rng() * 320
+        const y = rng() * 190
+        lines.push(h('path', { key: i, d: `M${x} ${y}l-4 9`, stroke: '#e8f1ff', strokeWidth: 1.2, opacity: 0.6, strokeLinecap: 'round' }))
+      }
+      return h('g', null, ...lines)
+    }
+
+    function SeaDecor({ sea, rng, ink, tokens, tod }) {
       if (sea === 'code') {
+        const mirror = rng() < 0.5
+        const n = Math.max(1, Math.min(3, tokens.length || 1))
+        const roofs = ['#e76f51', '#2a9d8f', '#e9c46a']
+        const houses = Array.from({ length: n }, (_, i) => {
+          const x0 = 176 + i * 34
+          const x = mirror ? 300 - x0 - 26 : x0
+          const label = tokens[i] || '{ }'
+          return h(
+            'g',
+            { key: i, transform: `translate(${x} ${92 - (i % 2) * 6})` },
+            h('rect', { x: 0, y: 0, width: 26, height: 18, rx: 2, fill: '#fff8e8' }),
+            h('path', { d: 'M-3 2l16-13 16 13z', fill: roofs[i % roofs.length] }),
+            h('text', { x: 13, y: 12.5, fontSize: label.length > 4 ? 5 : 6.5, textAnchor: 'middle', fill: ink, fontFamily: 'ui-monospace,Menlo,monospace' }, label),
+            tod === 'night' || tod === 'dusk' ? h('rect', { x: 9, y: 13, width: 8, height: 5, fill: '#ffe08a' }) : null,
+          )
+        })
         return h(
           'g',
           null,
-          h('path', { d: 'M150 120q40-34 90-30q30 2 50 30z', fill: '#3f9d63' }),
-          h('path', { d: 'M20 124q26-22 60-18q20 3 30 18z', fill: '#4caf72' }),
-          h('rect', { x: 196, y: 82, width: 22, height: 18, rx: 2, fill: '#fff8e8' }),
-          h('path', { d: 'M193 84l14-12 14 12z', fill: '#e76f51' }),
-          h('text', { x: 207, y: 96, fontSize: 9, textAnchor: 'middle', fill: ink, fontFamily: 'ui-monospace,Menlo,monospace' }, '{ }'),
-          h('rect', { x: 236, y: 90, width: 16, height: 12, rx: 2, fill: '#fff8e8' }),
-          h('path', { d: 'M234 92l10-9 10 9z', fill: '#2a9d8f' }),
-          ...[0, 1, 2, 3].map((i) =>
-            h('text', { key: i, x: 30 + rng() * 240, y: 18 + rng() * 40, fontSize: 10 + rng() * 6, fill: '#f4c430', opacity: 0.9 }, '★'),
+          h(
+            'g',
+            { transform: mirror ? 'translate(300 0) scale(-1 1)' : undefined },
+            h('path', { d: 'M150 124q40-36 92-32q32 2 54 32z', fill: tod === 'night' ? '#2f6f4b' : '#3f9d63' }),
+            h('path', { d: 'M14 126q26-22 60-18q22 3 32 18z', fill: tod === 'night' ? '#346e51' : '#4caf72' }),
           ),
+          ...houses,
+          ...[0, 1, 2].map((i) => h('text', { key: `st${i}`, x: 30 + rng() * 240, y: 50 + rng() * 40, fontSize: 9 + rng() * 5, fill: '#f4c430', opacity: 0.85 }, '★')),
         )
       }
       if (sea === 'paper') {
+        const pages = 3 + (tokens.length || 0)
+        const jelly = Math.floor(rng() * 3)
         return h(
           'g',
           null,
-          ...[0, 1, 2, 3, 4].map((i) => {
-            const x = 40 + rng() * 220
-            const y = 70 + rng() * 80
-            const r = -20 + rng() * 40
+          ...Array.from({ length: pages }, (_, i) => {
+            const x = 30 + rng() * 240
+            const y = 40 + rng() * 110
+            const r = -25 + rng() * 50
             return h(
               'g',
               { key: i, transform: `translate(${x} ${y}) rotate(${r})`, className: 'wv-glow' },
@@ -223,56 +342,81 @@ window.__ModuleLoader__.load({
               h('path', { d: 'M-5 -6h10M-5 -2h10M-5 2h7M-5 6h9', stroke: '#8a7f52', strokeWidth: 1 }),
             )
           }),
-          ...[0, 1, 2, 3, 4, 5].map((i) => h('circle', { key: `b${i}`, cx: 20 + rng() * 260, cy: 20 + rng() * 60, r: 1 + rng() * 2.2, fill: '#cfe3ff', opacity: 0.8 })),
+          ...Array.from({ length: jelly }, (_, i) => {
+            const x = 40 + rng() * 220
+            const y = 30 + rng() * 60
+            return h(
+              'g',
+              { key: `j${i}`, transform: `translate(${x} ${y})`, opacity: 0.85 },
+              h('path', { d: 'M-9 0a9 8 0 0 1 18 0z', fill: '#f7a8d8' }),
+              h('path', { d: 'M-6 0q-2 6 0 12M0 0q2 7 0 14M6 0q-2 6 0 11', stroke: '#f7a8d8', strokeWidth: 1.2, fill: 'none' }),
+            )
+          }),
+          ...[0, 1, 2, 3, 4, 5].map((i) => h('circle', { key: `b${i}`, cx: 20 + rng() * 260, cy: 10 + rng() * 60, r: 1 + rng() * 2.2, fill: '#cfe3ff', opacity: 0.8 })),
+          tokens[0] ? h('text', { x: 150, y: 22, fontSize: 9, textAnchor: 'middle', fill: '#cfe3ff', opacity: 0.85, fontFamily: 'Georgia,serif', fontStyle: 'italic' }, tokens[0]) : null,
         )
       }
       if (sea === 'danmaku') {
-        const words = ['哈哈哈哈', '名场面', '来了来了', '三连了', '前方高能', '好耶', '泪目', '学到了']
+        const generic = ['哈哈哈哈', '名场面', '来了来了', '三连了', '前方高能', '好耶', '泪目', '学到了']
+        const words = [...tokens.filter(Boolean), ...generic.sort(() => rng() - 0.5)].slice(0, 6)
+        const colors = ['#ff6b9a', '#00a1d6', '#ffb000', '#7b61ff', tod === 'night' ? '#ffffff' : '#3a3a3a', '#2a9d8f']
+        const sandLeft = rng() < 0.5
         return h(
           'g',
           null,
-          ...[0, 1, 2, 3, 4].map((i) => {
-            const y = 16 + i * 13
-            const x = rng() * 200
-            const w = words[Math.floor(rng() * words.length)]
-            const colors = ['#ff6b9a', '#00a1d6', '#ffb000', '#7b61ff', '#ffffff']
-            return h(
+          ...words.map((w, i) =>
+            h(
               'text',
-              { key: i, x, y, fontSize: 10, fill: colors[i % colors.length], stroke: 'rgba(0,0,0,.25)', strokeWidth: 0.4, className: 'wv-scroll', style: { animationDelay: `${-rng() * 8}s` } },
+              { key: i, x: rng() * 190, y: 16 + i * 14, fontSize: i < tokens.length ? 11 : 9.5, fontWeight: i < tokens.length ? 700 : 400, fill: colors[i % colors.length], className: 'wv-scroll', style: { animationDelay: `${-rng() * 8}s` } },
               w,
-            )
-          }),
-          h('path', { d: 'M0 128q60-14 120-4q30 6 40 4v16H0z', fill: '#f6d7a7' }),
+            ),
+          ),
+          h('path', { d: sandLeft ? 'M0 128q60-14 120-4q30 6 40 4v16H0z' : 'M300 128q-60-14-120-4q-30 6-40 4v16h160z', fill: '#f6d7a7' }),
         )
       }
       if (sea === 'hacker') {
+        const lx = rng() < 0.5 ? 203 : 70
+        const boats = Math.floor(rng() * 3)
         return h(
           'g',
           null,
-          h('path', { d: 'M150 102q-40 -10 -110 -40', stroke: '#fff3c4', strokeWidth: 18, opacity: 0.35, className: 'wv-beam' }),
-          h('path', { d: 'M180 126q30-18 70-16q30 2 50 16z', fill: '#2c3e50' }),
-          h('rect', { x: 196, y: 70, width: 14, height: 44, fill: '#ffffff' }),
-          h('rect', { x: 196, y: 82, width: 14, height: 7, fill: '#ff6600' }),
-          h('rect', { x: 196, y: 98, width: 14, height: 7, fill: '#ff6600' }),
-          h('path', { d: 'M193 70h20l-4-10h-12z', fill: '#ff6600' }),
-          h('circle', { cx: 203, cy: 64, r: 3.5, fill: '#fff3c4' }),
+          tod === 'night' || tod === 'dusk'
+            ? h('path', { d: lx > 150 ? `M${lx - 8} 66l-140 -30v40z` : `M${lx + 8} 66l140 -30v40z`, fill: '#fff3c4', opacity: 0.25, className: 'wv-beam' })
+            : null,
+          h('path', { d: `M${lx - 23} 126q30-18 70-16q30 2 50 16z`, fill: '#2c3e50', transform: lx < 150 ? `translate(${2 * lx} 0) scale(-1 1)` : undefined }),
+          h('rect', { x: lx - 7, y: 70, width: 14, height: 44, fill: '#ffffff' }),
+          h('rect', { x: lx - 7, y: 82, width: 14, height: 7, fill: '#ff6600' }),
+          h('rect', { x: lx - 7, y: 98, width: 14, height: 7, fill: '#ff6600' }),
+          h('path', { d: `M${lx - 10} 70h20l-4-10h-12z`, fill: '#ff6600' }),
+          h('circle', { cx: lx, cy: 64, r: 3.5, fill: '#fff3c4' }),
+          ...Array.from({ length: boats }, (_, i) => {
+            const bx = (lx > 150 ? 30 : 170) + rng() * 100
+            return h(
+              'g',
+              { key: `b${i}`, transform: `translate(${bx} ${118 + rng() * 4})` },
+              h('path', { d: 'M-10 0h20l-4 5h-12z', fill: '#5a3a1f' }),
+              h('path', { d: 'M0 0v-16l9 13z', fill: i % 2 ? '#ffffff' : '#ff6600' }),
+            )
+          }),
         )
       }
       if (sea === 'chat') {
+        const texts = tokens.length ? tokens : ['…', '+1', '…']
         return h(
           'g',
           null,
           h('path', { d: 'M10 128q20-20 46-18q18 2 26 18z', fill: '#6b5a9e' }),
           h('path', { d: 'M210 128q24-26 58-22q20 4 30 22z', fill: '#6b5a9e' }),
-          ...[0, 1, 2].map((i) => {
+          ...texts.slice(0, 3).map((t, i) => {
             const x = 40 + i * 90 + rng() * 20
-            const y = 34 + rng() * 26
+            const y = 34 + rng() * 30
+            const w = Math.max(26, t.length * 10 + 10)
             return h(
               'g',
               { key: i, transform: `translate(${x} ${y})`, className: 'wv-bob', style: { animationDelay: `${-i * 0.7}s` } },
-              h('rect', { x: -18, y: -11, width: 36, height: 22, rx: 9, fill: '#ffffff' }),
+              h('rect', { x: -w / 2, y: -11, width: w, height: 22, rx: 9, fill: '#ffffff' }),
               h('path', { d: 'M-6 10l-4 8 10-8', fill: '#ffffff' }),
-              h('text', { x: 0, y: 4, fontSize: 11, textAnchor: 'middle', fill: ink }, i === 1 ? '+1' : '…'),
+              h('text', { x: 0, y: 4, fontSize: 9.5, textAnchor: 'middle', fill: ink }, t),
             )
           }),
         )
@@ -284,30 +428,81 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function pickPose(rng, seaId) {
+      if (seaId === 'paper') return rng() < 0.6 ? 'swim' : 'spout'
+      const r = rng()
+      if (r < 0.36) return 'swim'
+      if (r < 0.6) return 'spout'
+      if (r < 0.82) return 'jump'
+      return 'peek'
+    }
+
+    function WhaleInScene({ pose, rng, clipId }) {
+      const flip = rng() < 0.4
+      const x = 70 + rng() * 120
+      const s = 0.42
+      const dir = flip ? -1 : 1
+      if (pose === 'jump') {
+        return h(
+          'g',
+          null,
+          h('g', { transform: `translate(${x} 110) rotate(${-20 * dir})` }, h(Whale, { scale: s, flip })),
+          ...[0, 1, 2, 3, 4].map((i) => h('circle', { key: i, cx: x - 22 * dir + (rng() - 0.5) * 30, cy: 124 - rng() * 10, r: 1.5 + rng() * 2, fill: '#ffffff', opacity: 0.9 })),
+          h('path', { d: `M${x - 40} 126q10-8 20 0q10-8 20 0`, stroke: '#ffffff', strokeWidth: 2, fill: 'none', opacity: 0.8 }),
+        )
+      }
+      if (pose === 'peek') {
+        return h(
+          'g',
+          null,
+          // 只露出水面以上的部分：按海平面裁掉鲸鱼的下半身。
+          h('g', { clipPath: `url(#${clipId})` }, h(Whale, { x, y: 135, scale: 0.5, flip })),
+          h('path', { d: `M${x - 34} 142q8-5 16 0q8-5 16 0q8-5 16 0q8-5 16 0`, stroke: '#ffffff', strokeWidth: 1.6, fill: 'none', opacity: 0.7 }),
+        )
+      }
+      return h(
+        'g',
+        null,
+        h(Whale, { x, y: 150, scale: s, flip }),
+        pose === 'spout' ? h(Spout, { x: x + 8 * dir, y: 136, scale: 0.8, still: true }) : null,
+      )
+    }
+
     function PostcardArt({ card }) {
       const seaId = card.sea || 'fog'
       const pal = PALETTES[seaId] || PALETTES.fog
       const rng = seeded(card.id)
+      const tod = timeOfDay(card.returnedAt)
+      const weather = pickWeather(rng, tod, seaId)
+      const sky = cardSky(seaId, pal, tod)
+      const tokens = tokensFrom(card)
+      const pose = pickPose(rng, seaId)
       const gid = `wv-g-${String(card.id).slice(0, 8)}`
+      const seaFill = `url(#${gid}-sea)`
+      const stampHue = { dawn: '#fff4ec', day: '#fffaf0', dusk: '#fff1e6', night: '#f3f1ff' }[tod]
       return h(
         'svg',
         { viewBox: '0 0 300 200', className: 'wv-art', role: 'img', 'aria-label': `${card.seaName} 的风景` },
         h(
           'defs',
           null,
-          h('linearGradient', { id: `${gid}-sky`, x1: 0, y1: 0, x2: 0, y2: 1 }, h('stop', { offset: 0, stopColor: pal.sky[0] }), h('stop', { offset: 1, stopColor: pal.sky[1] })),
+          h('linearGradient', { id: `${gid}-sky`, x1: 0, y1: 0, x2: 0, y2: 1 }, h('stop', { offset: 0, stopColor: sky[0] }), h('stop', { offset: 1, stopColor: sky[1] })),
           h('linearGradient', { id: `${gid}-sea`, x1: 0, y1: 0, x2: 0, y2: 1 }, h('stop', { offset: 0, stopColor: pal.sea[0] }), h('stop', { offset: 1, stopColor: pal.sea[1] })),
+          h('clipPath', { id: `${gid}-above` }, h('rect', { x: 0, y: 0, width: 300, height: 141 })),
         ),
         h('rect', { width: 300, height: 200, fill: `url(#${gid}-sky)` }),
-        h(SeaDecor, { sea: seaId, rng, ink: pal.ink }),
-        h('rect', { y: 124, width: 300, height: 76, fill: `url(#${gid}-sea)` }),
+        h(SkyLayer, { tod, weather, rng, seaId }),
+        h(SeaDecor, { sea: seaId, rng, ink: pal.ink, tokens, tod }),
+        h('rect', { y: 124, width: 300, height: 76, fill: seaFill }),
+        tod === 'night' && seaId !== 'paper' ? h('rect', { y: 124, width: 300, height: 76, fill: '#0b1530', opacity: 0.35 }) : null,
         h(Waves, { y: 124, color: '#ffffff', rng }),
-        h(Whale, { x: 88 + rng() * 60, y: 150, scale: 0.42, flip: rng() < 0.4 }),
+        h(WhaleInScene, { pose, rng, clipId: `${gid}-above` }),
+        weather === 'rain' ? h(RainLayer, { rng }) : null,
         // 邮票
         h(
           'g',
           { transform: 'translate(250 10)' },
-          h('rect', { width: 40, height: 48, fill: '#fffaf0', stroke: '#e0c9a6', strokeDasharray: '3 2', strokeWidth: 2 }),
+          h('rect', { width: 40, height: 48, fill: stampHue, stroke: '#e0c9a6', strokeDasharray: '3 2', strokeWidth: 2 }),
           h('rect', { x: 5, y: 5, width: 30, height: 30, fill: pal.sea[0] }),
           h(Whale, { x: 20, y: 22, scale: 0.2 }),
           h('text', { x: 20, y: 44, fontSize: 6, textAnchor: 'middle', fill: '#8a6d3b' }, '港口邮政'),
@@ -315,10 +510,10 @@ window.__ModuleLoader__.load({
         // 邮戳
         h(
           'g',
-          { transform: 'translate(226 52) rotate(-14)', opacity: 0.7 },
-          h('circle', { r: 20, fill: 'none', stroke: '#b23a48', strokeWidth: 1.6 }),
-          h('text', { y: -4, fontSize: 7, textAnchor: 'middle', fill: '#b23a48', fontWeight: 700 }, card.seaName || ''),
-          h('text', { y: 7, fontSize: 5.6, textAnchor: 'middle', fill: '#b23a48' }, dateStamp(card.returnedAt)),
+          { transform: `translate(226 52) rotate(${-24 + rng() * 20})`, opacity: 0.7 },
+          h('circle', { r: 20, fill: 'none', stroke: tod === 'night' ? '#ff9aa8' : '#b23a48', strokeWidth: 1.6 }),
+          h('text', { y: -4, fontSize: 7, textAnchor: 'middle', fill: tod === 'night' ? '#ff9aa8' : '#b23a48', fontWeight: 700 }, card.seaName || ''),
+          h('text', { y: 7, fontSize: 5.6, textAnchor: 'middle', fill: tod === 'night' ? '#ff9aa8' : '#b23a48' }, dateStamp(card.returnedAt)),
         ),
         card.place ? h('text', { x: 12, y: 190, fontSize: 12, fill: '#ffffff', className: 'wv-hand', stroke: 'rgba(0,0,0,.25)', strokeWidth: 0.5 }, `寄自 ${card.place}`) : null,
       )
