@@ -1,0 +1,7 @@
+# dsh-whale-voyage bundle patch。
+#
+# 单包双面：宿主半区（index.js）管大肥鱼的航程、取材和写明信片，挂 /api/dsh-whale-voyage/*；
+# 浏览器半区（client.js）在左侧图标栏挂「出海」入口，主区是港口和明信片册。
+- insert:
+    - id: dsh-whale-voyage
+      name: dsh-whale-voyage
