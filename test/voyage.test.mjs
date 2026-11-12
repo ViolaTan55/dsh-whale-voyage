@@ -114,13 +114,14 @@ test('回港时记下连不上的海，连上了就清掉', () => {
   assert.deepEqual(Object.keys(back.unreachable).sort(), ['hacker', 'paper'])
 })
 
-test('读模型回的明信片：抠 JSON、丢掉越界和重复编号、最多 3 件', () => {
-  const reply = '好的\n{"place":"星标灯塔下","message":"今天风很大","picks":[{"index":1,"why":"好玩"},{"index":1,"why":"重复"},{"index":9,"why":"越界"},{"index":0,"why":"x"},{"index":2,"why":"y"},{"index":3,"why":"z"}]}'
-  const card = parsePostcardReply(reply, 4)
+test('读模型回的明信片：只认一件；越界的跳过；旧格式的 picks 取第一个合格的', () => {
+  const card = parsePostcardReply('好的\n{"place":"星标灯塔下","message":"今天风很大","pick":{"index":1,"why":"好玩"}}', 4)
   assert.equal(card.place, '星标灯塔下')
-  assert.deepEqual(card.picks.map((p) => p.index), [1, 0, 2])
+  assert.deepEqual(card.picks, [{ index: 1, why: '好玩' }])
+  const old = parsePostcardReply('{"message":"x","picks":[{"index":9,"why":"越界"},{"index":0,"why":"a"},{"index":2,"why":"b"}]}', 4)
+  assert.deepEqual(old.picks.map((p) => p.index), [0])
   assert.equal(parsePostcardReply('不是 JSON', 4), null)
-  assert.equal(parsePostcardReply('{"message":"x","picks":[{"index":7}]}', 4), null)
+  assert.equal(parsePostcardReply('{"message":"x","pick":{"index":7}}', 4), null)
 })
 
 test('arXiv Atom 解析', () => {
@@ -148,9 +149,9 @@ test('出海：第一片海取不到就绕去下一片；全取不到就起雾',
   }
 })
 
-test('模板明信片取前两件', () => {
+test('模板明信片只取一件', () => {
   const card = fallbackPostcard({ sea: SEAS[0], items: [{}, {}, {}], rng: fixed(0) })
-  assert.deepEqual(card.picks.map((p) => p.index), [0, 1])
+  assert.deepEqual(card.picks.map((p) => p.index), [0])
   assert.ok(card.message.length > 10)
 })
 

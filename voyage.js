@@ -3,7 +3,7 @@
  *
  * - 海域：每片海对应一个免 key 的公开数据源，取回「真东西」（标题、链接、一句介绍）。
  * - 航程：出海 / 回港的时间安排；可选「谷时靠岸」，按 DeepSeek 峰谷时段推迟回港。
- * - 明信片：把取回的东西交给模型挑 1–3 件、用大肥鱼的口吻写几句话；模型不可用时用模板兜底。
+ * - 明信片：把取回的东西交给模型只挑一件、用大肥鱼的口吻写几句话；模型不可用时用模板兜底。
  */
 
 /* ------------------------------------------------------------------ 海域 */
@@ -244,14 +244,14 @@ export const POSTCARD_SYSTEM = [
   '',
   '你会拿到：这次去的海域、主人塞给你的纸条（可能为空）、你在海上看到的一批真实条目（编号、标题、简介、链接）。',
   '',
-  '要做的事：',
-  '1. 从条目里挑 1 到 3 件你觉得主人最值得看的「土特产」。有纸条时优先挑和纸条相关的；纸条上的东西这片海没有，就照实说没找到，再挑你自己觉得有意思的。',
-  '2. 给每件写一句「为什么带回来」，30 字以内，说清它是什么、哪里有意思，只能依据条目里给的信息，不编造条目里没有的事实和数字。',
-  '3. 写一段明信片正文，60 到 90 字：第一人称，口语，像旅行途中随手写的；讲一点这片海的见闻和心情，可以提到挑回来的东西，但不要逐条复述。',
+  '一张明信片只介绍一样东西。要做的事：',
+  '1. 从条目里只挑一件你觉得主人最值得看的「土特产」。有纸条时优先挑和纸条相关的；纸条上的东西这片海没有，就在正文里照实说没找到，再挑一件你自己觉得有意思的。',
+  '2. 写一句「为什么带回来」，30 字以内，说清它是什么、哪里有意思。只能依据条目里给的信息，不编造条目里没有的事实和数字。',
+  '3. 写一段明信片正文，40 到 70 字：第一人称，口语，像旅行途中随手写的；讲你是怎么遇到这样东西的、当时的心情。只讲这一件，不提别的条目。',
   '4. 起一个这次的落脚点小地名，8 字以内，和海域气质相符，比如「星标灯塔下」。',
   '',
   '只输出一个 JSON 对象，不要代码块、不要多余文字：',
-  '{"place":"落脚点","message":"正文","picks":[{"index":条目编号,"why":"为什么带回来"}]}',
+  '{"place":"落脚点","message":"正文","pick":{"index":条目编号,"why":"为什么带回来"}}',
 ].join('\n')
 
 export function postcardPrompt({ sea, wish, items }) {
@@ -277,26 +277,26 @@ export function parsePostcardReply(text, itemCount) {
   } catch {
     return null
   }
-  if (!obj || typeof obj.message !== 'string' || !Array.isArray(obj.picks)) return null
-  const seen = new Set()
+  if (!obj || typeof obj.message !== 'string') return null
+  // 一张明信片只带一样东西：认 pick；模型按旧格式回了 picks 数组时取其中第一个合格的。
+  const candidates = [obj.pick, ...(Array.isArray(obj.picks) ? obj.picks : [])].filter(Boolean)
   const picks = []
-  for (const p of obj.picks) {
+  for (const p of candidates) {
     const index = Number(p && p.index)
-    if (!Number.isInteger(index) || index < 0 || index >= itemCount || seen.has(index)) continue
-    seen.add(index)
+    if (!Number.isInteger(index) || index < 0 || index >= itemCount) continue
     picks.push({ index, why: clean(p.why, 60) })
-    if (picks.length === 3) break
+    break
   }
   if (!picks.length) return null
   return { place: clean(obj.place || '', 16), message: clean(obj.message, 200), picks }
 }
 
 const FALLBACK_LINES = {
-  code: ['群岛上到处是新搭的小木屋，每间门口都挂着星星。我挑了几间亮着灯的，地址抄给你。', '今天代码群岛风很大，好多新仓库刚靠岸。我蹲在码头数星星，顺手捡了几个回来。'],
-  paper: ['深海里很安静，只有论文一页页发着光。我游得很慢，挑了几页看起来最亮的。', '在论文深海潜了一整天，耳朵里都是公式的回声。带回来几篇，标题我都抄好了。'],
-  danmaku: ['弹幕湾今天特别热闹，满天都是飘过去的字。我跟着人群看了好一会儿，挑了几个大家都在刷的。', '湾里的弹幕像流星雨一样，我差点迷路。回来前记下了几个最热闹的地方。'],
-  hacker: ['海峡那边的人聊得很起劲，灯塔亮到半夜。我在旁边听了一会儿，抄回来几条。', '黑客海峡风浪有点急，不过大家讨论的东西都很新鲜。我挑了几条给你。'],
-  chat: ['闲聊礁上大家七嘴八舌，我也凑过去听了听。有几个话题挺有意思，带回来给你看看。', '礁石上坐满了聊天的人，我在旁边晒太阳，顺便记下了几个热帖。'],
+  code: ['群岛上到处是新搭的小木屋，每间门口都挂着星星。我挑了最亮的那一间，地址抄给你。', '今天代码群岛风很大，好多新仓库刚靠岸。我蹲在码头数星星，顺手捡了一个回来。'],
+  paper: ['深海里很安静，只有论文一页页发着光。我游得很慢，挑了看起来最亮的那一页。', '在论文深海潜了一整天，耳朵里都是公式的回声。带回来一篇，标题我抄好了。'],
+  danmaku: ['弹幕湾今天特别热闹，满天都是飘过去的字。我跟着人群看了好一会儿，挑了一个大家都在刷的。', '湾里的弹幕像流星雨一样，我差点迷路。回来前记下了最热闹的那一处。'],
+  hacker: ['海峡那边的人聊得很起劲，灯塔亮到半夜。我在旁边听了一会儿，抄回来一条。', '黑客海峡风浪有点急，不过大家讨论的东西都很新鲜。我挑了一条给你。'],
+  chat: ['闲聊礁上大家七嘴八舌，我也凑过去听了听。有个话题挺有意思，带回来给你看看。', '礁石上坐满了聊天的人，我在旁边晒太阳，顺便记下了一个热帖。'],
 }
 const FALLBACK_PLACES = {
   code: ['星标码头', '分支岔口', '提交灯塔'],
@@ -310,12 +310,12 @@ function pickOne(list, rng) {
   return list[Math.floor(rng() * list.length) % list.length]
 }
 
-/** 模型不可用时的明信片：取前两件，配一句模板话。 */
+/** 模型不可用时的明信片：取第一件，配一句模板话。 */
 export function fallbackPostcard({ sea, items, rng = Math.random }) {
   return {
     place: pickOne(FALLBACK_PLACES[sea.id] || ['无名小岛'], rng),
-    message: pickOne(FALLBACK_LINES[sea.id] || ['这次走得有点远，带回来几样东西给你。'], rng),
-    picks: items.slice(0, 2).map((_, index) => ({ index, why: '' })),
+    message: pickOne(FALLBACK_LINES[sea.id] || ['这次走得有点远，带回来一样东西给你。'], rng),
+    picks: items.slice(0, 1).map((_, index) => ({ index, why: '' })),
   }
 }
 

@@ -148,42 +148,104 @@ window.__ModuleLoader__.load({
       return `#${((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1)}`
     }
 
-    function Spout({ x = 0, y = 0, scale = 1, still = false }) {
+    function Spout({ x = 0, y = 0, scale = 1, still = false, cute = false }) {
+      const water = cute ? '#8fd0f5' : '#d6eeff'
+      const drop = cute ? { fill: '#b9e4fb', stroke: INK, strokeWidth: 1.1 } : { fill: water }
       return h(
         'g',
         { transform: `translate(${x} ${y}) scale(${scale})`, className: still ? '' : 'wv-spout' },
-        h('path', { d: 'M0 0C-1 -8 -6 -13 -13 -13M0 0C1 -8 6 -13 13 -13', stroke: '#d6eeff', strokeWidth: 3.2, fill: 'none', strokeLinecap: 'round' }),
-        h('circle', { cx: -15.5, cy: -9, r: 1.8, fill: '#d6eeff' }),
-        h('circle', { cx: 15.5, cy: -9, r: 1.8, fill: '#d6eeff' }),
-        h('circle', { cx: 0, cy: -17, r: 2, fill: '#d6eeff' }),
+        h('path', { d: 'M0 0C-1 -8 -6 -13 -13 -13M0 0C1 -8 6 -13 13 -13', stroke: water, strokeWidth: cute ? 3.6 : 3.2, fill: 'none', strokeLinecap: 'round' }),
+        h('circle', { cx: -15.5, cy: -9, r: cute ? 2.4 : 1.8, ...drop }),
+        h('circle', { cx: 15.5, cy: -9, r: cute ? 2.4 : 1.8, ...drop }),
+        cute
+          ? h('path', { transform: 'translate(0 -21) scale(1.5)', d: 'M0 3C-6 -1 -3.5 -5.5 0 -2.5C3.5 -5.5 6 -1 0 3Z', fill: '#ff8fb0', stroke: INK, strokeWidth: 0.8, strokeLinejoin: 'round' })
+          : h('circle', { cx: 0, cy: -17, r: 2, fill: water }),
       )
     }
 
-    /** 朝右的大肥鱼，原点在身体中心；身体约 100×63，尾巴向左翘到 x=-88。 */
-    function Whale({ x = 0, y = 0, scale = 1, flip = false, sleepy = false, spout = null, className = '' }) {
+    /** 明信片上大肥鱼戴的小东西，每片海一样。 */
+    function WhaleHat({ hat }) {
+      const ol = { stroke: INK, strokeWidth: 1.9, strokeLinejoin: 'round', strokeLinecap: 'round' }
+      if (hat === 'sailor') {
+        return h(
+          'g',
+          { transform: 'translate(15 -29) rotate(10)' },
+          h('path', { d: 'M-12 1q-1-14 12-14t12 14z', fill: '#ffffff', ...ol }),
+          h('path', { d: 'M-13.5 1h27v-4.5h-27z', fill: '#4f86e0', ...ol }),
+          h('circle', { cx: 0, cy: -8, r: 2, fill: '#ffcf5a', stroke: INK, strokeWidth: 1 }),
+        )
+      }
+      if (hat === 'straw') {
+        return h(
+          'g',
+          { transform: 'translate(14 -28) rotate(10)' },
+          h('ellipse', { cx: 0, cy: 1, rx: 19, ry: 4.6, fill: '#ffd774', ...ol }),
+          h('path', { d: 'M-10 0q0-12 10-12t10 12z', fill: '#ffe49a', ...ol }),
+          h('path', { d: 'M-10 -0.5h20v-3.6h-20z', fill: '#ff7aa5', stroke: INK, strokeWidth: 1.2, strokeLinejoin: 'round' }),
+        )
+      }
+      if (hat === 'glasses') {
+        return h(
+          'g',
+          null,
+          h('path', { d: 'M17.6 -7.5L-4 -11M32.4 -5.6L46 -8.5', stroke: INK, strokeWidth: 1.7, strokeLinecap: 'round', fill: 'none' }),
+          h('circle', { cx: 25, cy: -5, r: 7.6, fill: '#ffffff', fillOpacity: 0.28, stroke: INK, strokeWidth: 1.9 }),
+        )
+      }
+      if (hat === 'flower') {
+        return h(
+          'g',
+          { transform: 'translate(-6 -32)' },
+          ...[0, 72, 144, 216, 288].map((a) => h('circle', { key: a, cx: Math.sin((a * Math.PI) / 180) * 4.6, cy: -Math.cos((a * Math.PI) / 180) * 4.6, r: 3.6, fill: '#ffb3cf', stroke: INK, strokeWidth: 1.2 })),
+          h('circle', { r: 3, fill: '#ffd95a', stroke: INK, strokeWidth: 1.2 }),
+        )
+      }
+      if (hat === 'star') {
+        return h('path', {
+          transform: 'translate(-10 -33) rotate(-12) scale(1.7)',
+          d: 'M0 -5L1.5 -1.6L5 -1.5L2.3 0.8L3.1 4.5L0 2.5L-3.1 4.5L-2.3 0.8L-5 -1.5L-1.5 -1.6Z',
+          fill: '#ffd95a',
+          stroke: INK,
+          strokeWidth: 1.1,
+          strokeLinejoin: 'round',
+        })
+      }
+      return null
+    }
+
+    /**
+     * 朝右的大肥鱼，原点在身体中心；身体约 100×63，尾巴向左翘到 x=-88。
+     * cute：明信片用的插画画法——描边、大眼睛、表情（mood: calm / happy / wow）和小配饰（hat）。
+     */
+    function Whale({ x = 0, y = 0, scale = 1, flip = false, sleepy = false, spout = null, className = '', cute = false, mood = 'calm', hat = null }) {
       const t = `translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`
+      const ol = cute ? { stroke: INK, strokeWidth: 2.3, strokeLinejoin: 'round', strokeLinecap: 'round' } : {}
+      const TAIL = 'M-44 -6C-54 -8 -58 -16 -60 -24C-62 -32 -70 -38 -80 -38C-78 -30 -74 -24 -68 -20C-76 -20 -84 -16 -88 -8C-78 -6 -68 -8 -60 -12C-58 -2 -54 6 -44 10Z'
+      const BODY = 'M48 0C48 -20 28 -32 2 -32C-22 -32 -40 -22 -50 -6C-52 0 -50 6 -46 10C-36 24 -18 31 4 31C30 31 48 20 48 0Z'
+      const face = cute ? '#2b2947' : '#1d3557'
+      let eyes
+      if (sleepy) eyes = h('path', { d: 'M20 -5q5 4 10 0', stroke: face, strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' })
+      else if (cute && mood === 'happy') eyes = h('path', { d: 'M19.5 -3q5.2-7 10.4 0', stroke: face, strokeWidth: 2.7, fill: 'none', strokeLinecap: 'round' })
+      else if (cute) eyes = h('g', null, h('circle', { cx: 25, cy: -5, r: 5, fill: face }), h('circle', { cx: 26.8, cy: -7, r: 1.8, fill: '#ffffff' }), h('circle', { cx: 23.2, cy: -2.8, r: 0.9, fill: '#ffffff' }))
+      else eyes = h('g', null, h('circle', { cx: 25, cy: -5, r: 4, fill: face }), h('circle', { cx: 26.3, cy: -6.4, r: 1.3, fill: '#ffffff' }))
       return h(
         'g',
         { transform: t, className },
-        spout ? h(Spout, { x: 6, y: -33, still: spout === 'still' }) : null,
-        // 尾巴
-        h('path', { d: 'M-44 -6C-54 -8 -58 -16 -60 -24C-62 -32 -70 -38 -80 -38C-78 -30 -74 -24 -68 -20C-76 -20 -84 -16 -88 -8C-78 -6 -68 -8 -60 -12C-58 -2 -54 6 -44 10Z', fill: '#4a79b4' }),
-        // 身体
-        h('path', { d: 'M48 0C48 -20 28 -32 2 -32C-22 -32 -40 -22 -50 -6C-52 0 -50 6 -46 10C-36 24 -18 31 4 31C30 31 48 20 48 0Z', fill: '#5c92d1' }),
-        // 背上的高光
-        h('path', { d: 'M-28 -20C-14 -29 10 -30 26 -22', stroke: '#8db8ea', strokeWidth: 5, strokeLinecap: 'round', fill: 'none', opacity: 0.7 }),
-        // 白肚皮和腹纹
-        h('path', { d: 'M-44 8C-30 18 -4 21 18 17C32 14 42 8 47 4C46 20 29 31 4 31C-18 31 -36 24 -46 10Z', fill: '#e3f1fc' }),
+        spout ? h(Spout, { x: 6, y: -33, still: spout === 'still', cute }) : null,
+        h('path', { d: TAIL, fill: '#4a79b4', ...ol }),
+        h('path', { d: BODY, fill: cute ? '#6a9fe0' : '#5c92d1' }),
+        h('path', { d: 'M-28 -20C-14 -29 10 -30 26 -22', stroke: cute ? '#a9cbf5' : '#8db8ea', strokeWidth: 5, strokeLinecap: 'round', fill: 'none', opacity: 0.7 }),
+        h('path', { d: 'M-44 8C-30 18 -4 21 18 17C32 14 42 8 47 4C46 20 29 31 4 31C-18 31 -36 24 -46 10Z', fill: cute ? '#f3f9ff' : '#e3f1fc' }),
         h('path', { d: 'M-22 21C-10 25 6 26 20 23M-12 26.5C-2 29 10 29 20 27', stroke: '#b9d6ee', strokeWidth: 1.3, strokeLinecap: 'round', fill: 'none' }),
-        // 鳍
-        h('path', { d: 'M-4 12C-8 22 -4 30 6 34C8 28 8 20 6 13Z', fill: '#4a79b4' }),
-        // 脸
-        sleepy
-          ? h('path', { d: 'M20 -5q5 4 10 0', stroke: '#1d3557', strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' })
-          : h('g', null, h('circle', { cx: 25, cy: -5, r: 4, fill: '#1d3557' }), h('circle', { cx: 26.3, cy: -6.4, r: 1.3, fill: '#ffffff' })),
-        h('ellipse', { cx: 29, cy: 5, rx: 5, ry: 3, fill: '#f7a6ba', opacity: 0.85 }),
-        h('path', { d: 'M37 2q3.6 3.4 7.2 0', stroke: '#1d3557', strokeWidth: 1.8, fill: 'none', strokeLinecap: 'round' }),
+        cute ? h('path', { d: BODY, fill: 'none', ...ol }) : null,
+        h('path', { d: 'M-4 12C-8 22 -4 30 6 34C8 28 8 20 6 13Z', fill: '#4a79b4', ...ol }),
+        eyes,
+        cute ? h('ellipse', { cx: 28.5, cy: 6.5, rx: 6, ry: 3.6, fill: '#ff9fb8', opacity: 0.9 }) : h('ellipse', { cx: 29, cy: 5, rx: 5, ry: 3, fill: '#f7a6ba', opacity: 0.85 }),
+        cute && mood !== 'calm'
+          ? h('path', { d: 'M36 1.4h8.4q-4.2 7.6-8.4 0z', fill: '#ff7d9c', stroke: INK, strokeWidth: 1.5, strokeLinejoin: 'round' })
+          : h('path', { d: 'M37 2q3.6 3.4 7.2 0', stroke: face, strokeWidth: cute ? 2 : 1.8, fill: 'none', strokeLinecap: 'round' }),
         h('ellipse', { cx: 6, cy: -31, rx: 3, ry: 1, fill: '#3f6aa3' }),
+        cute && hat ? h(WhaleHat, { hat }) : null,
       )
     }
 
@@ -263,24 +325,32 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /* ------------------------------------------------------------ 画：海域明信片正面 */
-
-    const PALETTES = {
-      code: { sky: ['#bfeadf', '#f1fbf8'], sea: ['#35b3a6', '#0f6860'], ink: '#0e4f49' },
-      paper: { sky: ['#143a78', '#081a3d'], sea: ['#10264f', '#050f24'], ink: '#dce8ff' },
-      danmaku: { sky: ['#ffcfe3', '#fff1f7'], sea: ['#62cdf7', '#1b86bd'], ink: '#7a2550' },
-      hacker: { sky: ['#ffab66', '#ffe4c7'], sea: ['#4b6f9c', '#22354f'], ink: '#5a2a05' },
-      chat: { sky: ['#d3c5ff', '#f3eeff'], sea: ['#9483e6', '#5443ad'], ink: '#382a7a' },
-      fog: { sky: ['#c3c9d2', '#e9edf1'], sea: ['#a3adba', '#6b7685'], ink: '#3d4552' },
-    }
+    /* ------------------------------------------------------------ 画：海域明信片正面（可爱插画风） */
 
     /*
-     * 每张明信片画的是「这一趟」：
-     * - 回港时刻定天色（清晨 / 白天 / 傍晚 / 夜里），夜里有月亮和星星；
-     * - 天气按这张卡随机（晴 / 多云 / 雨 / 彩虹）；
-     * - 大肥鱼的姿势随机（游 / 喷水 / 跃出水面 / 探头）；
-     * - 画里的字和物件来自它带回的东西：弹幕是视频标题片段，小房子门牌是仓库的语言，气泡是帖子开头。
+     * 画法：大肥鱼是主角，画得大、带描边和表情；每张只围绕它带回的那一样东西，别的尽量少。
+     * - 每片海一个主景物（小岛上的一间房子 / 沙滩伞 / 礁石上的海鸥 / 灯塔 / 一页发光的论文）和一件小配饰；
+     * - 带回的那样东西变成画里的一个词：房子的门牌、一条弹幕、一个对话气泡、论文的标题；
+     * - 回港时刻定天色，天气和姿势每张随机。
      */
+
+    const INK = '#3f3a63'
+    const OL = { stroke: INK, strokeWidth: 1.7, strokeLinejoin: 'round', strokeLinecap: 'round' }
+
+    const CUTE = {
+      code: { sky: ['#bff0e0', '#f1fcf6'], sea: ['#93e2d2', '#5fcab9', '#36ab9b'], hat: 'star' },
+      danmaku: { sky: ['#ffd0e4', '#fff4f9'], sea: ['#a3e5ff', '#6accf5', '#3cabe1'], hat: 'straw' },
+      chat: { sky: ['#dcd0ff', '#f7f2ff'], sea: ['#c4b7f8', '#a090ec', '#7f6dd9'], hat: 'flower' },
+      hacker: { sky: ['#ffd2a6', '#fff1df'], sea: ['#a5c6ed', '#769ed6', '#517dbb'], hat: 'sailor' },
+      paper: { sky: ['#5580d6', '#27459a'], sea: ['#5580d6', '#27459a', '#1c3478'], hat: 'glasses' },
+      fog: { sky: ['#d7dde6', '#f2f4f7'], sea: ['#c8d0da', '#a8b2bf', '#8a95a5'], hat: null },
+    }
+
+    const CUTE_SKIES = {
+      dawn: ['#ffcdb8', '#fff5ec'],
+      dusk: ['#ffad94', '#ffe4bd'],
+      night: ['#2a2960', '#4d4c96'],
+    }
 
     function timeOfDay(t) {
       const hr = new Date(t).getHours()
@@ -290,398 +360,398 @@ window.__ModuleLoader__.load({
       return 'night'
     }
 
-    const TIME_SKIES = {
-      dawn: ['#ffbf9e', '#f3f1ff'],
-      dusk: ['#ec7a62', '#ffd7a1'],
-      night: ['#0e1a3a', '#2b3b72'],
-    }
-
-    function cardSky(seaId, pal, tod) {
-      if (seaId === 'paper' || seaId === 'fog' || tod === 'day') return pal.sky
-      return TIME_SKIES[tod]
-    }
-
-    /** 从带回的东西里取几个短词，画进插画。 */
-    function tokensFrom(card) {
-      const items = card.items || []
+    /** 带回的那样东西，变成画里的一个词。 */
+    function focusWord(card) {
+      const it = (card.items || [])[0]
+      if (!it) return ''
       const short = (s, n) => {
         const t = String(s || '').replace(/[【】\[\]（）()「」《》|]/g, ' ').replace(/\s+/g, ' ').trim()
         return t.length > n ? t.slice(0, n) : t
       }
       if (card.sea === 'code') {
         const ABBR = { TypeScript: 'TS', JavaScript: 'JS', 'Jupyter Notebook': 'Jupyter' }
-        return items.map((it) => {
-          const lang = String(it.meta || '').split('·')[1]
-          const name = lang && lang.trim() ? lang.trim() : String(it.title || '').split('/').pop()
-          return short(ABBR[name] || name, 7)
-        })
+        const lang = String(it.meta || '').split('·')[1]
+        const name = lang && lang.trim() ? lang.trim() : String(it.title || '').split('/').pop()
+        return short(ABBR[name] || name, 7)
       }
-      if (card.sea === 'danmaku') return items.map((it) => short(it.title, 7))
-      if (card.sea === 'chat') return items.map((it) => short(it.title, 4))
-      return items.map((it) => short(it.title, 12))
+      if (card.sea === 'danmaku') return short(it.title, 8)
+      if (card.sea === 'chat') return short(it.title, 5)
+      if (card.sea === 'paper') return short(it.title, 22)
+      return ''
     }
 
-    function pickWeather(rng, tod, seaId) {
-      if (seaId === 'paper' || seaId === 'fog') return 'clear'
+    function pickWeather(rng, tod) {
       const r = rng()
-      if (r < 0.48) return 'clear'
+      if (r < 0.5) return 'clear'
       if (r < 0.72) return 'clouds'
       if (r < 0.86) return 'rain'
       return tod === 'night' ? 'clouds' : 'rainbow'
     }
 
-    /** 这张卡的光源：夜里是月亮，清晨傍晚是贴着海平面的太阳，晴朗的白天是高处的太阳。 */
-    function pickLight(rng, tod, weather, seaId) {
-      if (seaId === 'paper' || seaId === 'fog') return null
-      if (tod === 'night') return { kind: 'moon', x: 34 + rng() * 170, y: 30, color: '#fff3c9' }
-      if (tod === 'dawn') return { kind: 'low', x: 44 + rng() * 70, y: 124, color: '#ffe2a8' }
-      if (tod === 'dusk') return { kind: 'low', x: 150 + rng() * 70, y: 124, color: '#ffb46b' }
-      if (weather === 'clear' || weather === 'rainbow') return { kind: 'sun', x: 26 + rng() * 40, y: 28, color: '#ffe27a' }
-      return null
-    }
-
-    function SkyLayer({ tod, weather, rng, light, skyTop }) {
-      const out = []
-      if (tod === 'night' && light) {
-        for (let i = 0; i < 16; i += 1) out.push(h('circle', { key: `s${i}`, cx: rng() * 300, cy: rng() * 104, r: 0.6 + rng() * 1.1, fill: '#ffffff', opacity: 0.45 + rng() * 0.5, className: i % 4 === 0 ? 'wv-blink' : '' }))
-      }
-      if (light && light.kind === 'moon') {
-        out.push(h('circle', { key: 'halo', cx: light.x, cy: light.y, r: 20, fill: light.color, opacity: 0.12 }))
-        out.push(h('circle', { key: 'moon', cx: light.x, cy: light.y, r: 11, fill: light.color }), h('circle', { key: 'moon2', cx: light.x + 5.5, cy: light.y - 3.5, r: 9.5, fill: skyTop }))
-      } else if (light) {
-        const r = light.kind === 'low' ? 21 : 12
-        out.push(h('circle', { key: 'halo2', cx: light.x, cy: light.y, r: r * 2.1, fill: light.color, opacity: 0.16 }))
-        out.push(h('circle', { key: 'halo', cx: light.x, cy: light.y, r: r * 1.45, fill: light.color, opacity: 0.28 }))
-        out.push(h('circle', { key: 'sun', cx: light.x, cy: light.y, r, fill: light.color }))
-      }
-      if (weather === 'rainbow') {
-        const cx = 70 + rng() * 150
-        const colors = ['#ff8a80', '#ffd180', '#fff59d', '#a5d6a7', '#90caf9', '#b39ddb']
-        colors.forEach((c, i) => out.push(h('path', { key: `r${i}`, d: `M${cx - 72 + i * 3.6} 126a${72 - i * 3.6} ${72 - i * 3.6} 0 0 1 ${144 - i * 7.2} 0`, stroke: c, strokeWidth: 3.8, fill: 'none', opacity: 0.5 })))
-      }
-      if (weather === 'clouds' || weather === 'rain' || weather === 'rainbow') {
-        const n = weather === 'rainbow' ? 1 : 2 + Math.floor(rng() * 2)
-        const color = weather === 'rain' ? '#c6cfdc' : tod === 'night' ? '#aab4d8' : tod === 'dusk' ? '#ffe6d6' : '#ffffff'
-        for (let i = 0; i < n; i += 1) out.push(h(Cloud, { key: `c${i}`, x: 34 + rng() * 180, y: 24 + rng() * 34, s: 0.75 + rng() * 0.6, color, opacity: tod === 'night' ? 0.55 : 0.92 }))
-      }
-      return h('g', null, ...out)
-    }
-
-    function RainLayer({ rng }) {
-      const lines = []
-      for (let i = 0; i < 36; i += 1) {
-        const x = rng() * 320
-        const y = rng() * 185
-        lines.push(h('path', { key: i, d: `M${x} ${y}l-3.5 9`, stroke: '#eef4ff', strokeWidth: 1.1, opacity: 0.55, strokeLinecap: 'round' }))
-      }
-      return h('g', null, ...lines)
-    }
-
-    function House({ x, y, label, roof, ink, lit }) {
-      return h(
-        'g',
-        { transform: `translate(${x} ${y})` },
-        h('rect', { x: 0, y: 0, width: 26, height: 18, rx: 2, fill: '#fff6e3' }),
-        h('rect', { x: 0, y: 14.5, width: 26, height: 3.5, fill: '#e9d9b8' }),
-        h('rect', { x: 2.5, y: 3.5, width: 21, height: 9, rx: 1.5, fill: lit ? '#ffe9a8' : '#ffffff' }),
-        h('path', { d: 'M-3.5 2.5L13 -11L29.5 2.5Z', fill: roof }),
-        h('path', { d: 'M13 -11L29.5 2.5H21Z', fill: '#000000', opacity: 0.12 }),
-        h('text', { x: 13, y: 10.4, fontSize: label.length > 4 ? 5 : 6.4, textAnchor: 'middle', fill: ink, fontWeight: 700, fontFamily: 'ui-monospace,Menlo,monospace' }, label),
-      )
-    }
-
-    /** 海平面以上的景物（论文深海除外，那片整张都在水下）。 */
-    function SeaDecor({ sea, rng, ink, tokens, tod, sky, lighthouseRight = true }) {
-      const night = tod === 'night'
-      const dim = (c) => (night ? mix(c, '#0b1530', 0.42) : tod === 'dusk' ? mix(c, '#7a3b2e', 0.18) : c)
-      if (sea === 'code') {
-        const mirror = rng() < 0.5
-        const mx = (x, w = 0) => (mirror ? 300 - x - w : x)
-        const n = Math.max(1, Math.min(3, tokens.length || 1))
-        const roofs = ['#e76f51', '#2a9d8f', '#e9b949']
-        return h(
-          'g',
-          null,
-          h(
-            'g',
-            { transform: mirror ? 'translate(300 0) scale(-1 1)' : undefined },
-            h('path', { d: 'M146 128q40-40 94-36q36 2 60 36z', fill: dim('#3f9d63') }),
-            h('path', { d: 'M172 106q28-17 66-14q-34 5-56 22z', fill: dim('#63bf85'), opacity: 0.8 }),
-            h('path', { d: 'M10 128q26-24 60-20q24 3 34 20z', fill: dim('#4caf72') }),
-            h('path', { d: 'M30 114q18-10 38-8q-20 4-30 12z', fill: dim('#74cb93'), opacity: 0.8 }),
-          ),
-          h(Pine, { x: mx(160), y: 116, s: 0.9, fill: dim('#2f7d4f') }),
-          h(Pine, { x: mx(276), y: 113, s: 1.05, fill: dim('#2f7d4f') }),
-          h(Pine, { x: mx(44), y: 113, s: 0.85, fill: dim('#37885a') }),
-          h(Pine, { x: mx(58), y: 115, s: 0.65, fill: dim('#2f7d4f') }),
-          ...Array.from({ length: n }, (_, i) => h(House, { key: i, x: mx(178 + i * 30, 26), y: 90 - (i % 2) * 5, label: tokens[i] || '{ }', roof: dim(roofs[i % roofs.length]), ink, lit: night || tod === 'dusk' })),
-          ...[0, 1, 2].map((i) => h(Star, { key: `st${i}`, x: 24 + rng() * 200, y: 22 + rng() * 52, s: 0.9 + rng() * 0.6, rot: -20 + rng() * 40 })),
-        )
-      }
-      if (sea === 'danmaku') {
-        const generic = ['哈哈哈哈', '名场面', '来了来了', '三连了', '前方高能', '好耶', '泪目', '学到了']
-        const words = [...tokens.filter(Boolean), ...generic.sort(() => rng() - 0.5)].slice(0, 6)
-        const colors = ['#ff5c93', '#0099cf', '#f59f00', '#7b61ff', night ? '#ffffff' : '#444444', '#22a08f']
-        const left = rng() < 0.5
-        const ux = left ? 34 + rng() * 30 : 236 + rng() * 30
-        return h(
-          'g',
-          null,
-          ...words.map((w, i) =>
-            h(
-              'text',
-              {
-                key: i,
-                x: rng() * 150,
-                y: 18 + i * 14.5,
-                fontSize: i < tokens.length ? 11 : 9.5,
-                fontWeight: i < tokens.length ? 700 : 500,
-                fill: colors[i % colors.length],
-                stroke: night ? '#0e1a3a' : '#ffffff',
-                strokeWidth: 2.2,
-                strokeOpacity: 0.75,
-                paintOrder: 'stroke',
-                strokeLinejoin: 'round',
-                className: 'wv-scroll',
-                style: { animationDelay: `${-rng() * 8}s` },
-              },
-              w,
-            ),
-          ),
-          h('path', { d: left ? 'M0 128q60-16 124-5q28 5 40 5z' : 'M300 128q-60-16-124-5q-28 5-40 5z', fill: dim('#f6d9ab') }),
-          h('path', { d: left ? 'M0 128q50-9 104-3z' : 'M300 128q-50-9-104-3z', fill: dim('#fbe8c6') }),
-          // 沙滩伞
-          h(
-            'g',
-            { transform: `translate(${ux} 121)` },
-            h('path', { d: 'M0 0V-21', stroke: dim('#8a6d4b'), strokeWidth: 1.4 }),
-            h('path', { d: 'M-15 -19a15 12 0 0 1 30 0z', fill: dim('#ff7aa5') }),
-            h('path', { d: 'M-5 -19a15 12 0 0 1 5-11.6a15 12 0 0 1 5 11.6z', fill: dim('#ffffff') }),
-            h('circle', { cx: 0, cy: -31, r: 1.2, fill: dim('#ff7aa5') }),
-          ),
-          h(Star, { x: ux + (left ? 26 : -26), y: 123, s: 0.55, rot: 18, fill: dim('#ff9a62') }),
-        )
-      }
-      if (sea === 'hacker') {
-        const right = lighthouseRight
-        const lx = right ? 214 : 78
-        const boats = Math.floor(rng() * 3)
-        const lit = night || tod === 'dusk'
-        return h(
-          'g',
-          null,
-          h('path', { d: 'M0 126q34-20 84-11q44-16 96-5q52-14 120 16z', fill: mix(sky[1], '#33475f', 0.4), opacity: 0.7 }),
-          lit ? h('path', { d: right ? `M${lx - 4} 62L${lx - 150} 34V84Z` : `M${lx + 4} 62L${lx + 150} 34V84Z`, fill: '#fff3c4', opacity: 0.22, className: 'wv-beam' }) : null,
-          h('path', { d: `M${lx - 32} 128q8-15 30-14q26 0 38 14z`, fill: dim('#2c3e50') }),
-          h('path', { d: `M${lx - 20} 118q8-5 20-4q-10 2-14 6z`, fill: dim('#48607a') }),
-          h('path', { d: `M${lx - 8} 115L${lx - 5.5} 72H${lx + 5.5}L${lx + 8} 115Z`, fill: dim('#ffffff') }),
-          h('path', { d: `M${lx - 6.2} 84H${lx + 6.2}L${lx + 6.8} 93H${lx - 6.8}Z`, fill: dim('#ff6600') }),
-          h('path', { d: `M${lx - 7.3} 102H${lx + 7.3}L${lx + 7.8} 111H${lx - 7.8}Z`, fill: dim('#ff6600') }),
-          h('rect', { x: lx - 8, y: 69, width: 16, height: 3.2, rx: 1, fill: dim('#2c3e50') }),
-          h('rect', { x: lx - 4.5, y: 60, width: 9, height: 9, fill: lit ? '#fff3c4' : dim('#dfeaf5') }),
-          h('path', { d: `M${lx - 6.5} 60L${lx} 53L${lx + 6.5} 60Z`, fill: dim('#ff6600') }),
-          h('rect', { x: lx - 1.6, y: 96, width: 3.2, height: 4.5, rx: 1.4, fill: dim('#2c3e50') }),
-          ...Array.from({ length: boats }, (_, i) => {
-            const bx = (right ? 36 : 176) + rng() * 96
-            return h(
-              'g',
-              { key: `b${i}`, transform: `translate(${bx} ${121 + rng() * 3})` },
-              h('path', { d: 'M-10 0h20l-4 5.5h-12z', fill: dim('#5a3a1f') }),
-              h('path', { d: 'M0 -1v-16l9 13.5z', fill: dim(i % 2 ? '#ffffff' : '#ff6600') }),
-              h('path', { d: 'M-1.2 -1v-12l-6 10z', fill: dim('#f1e3c8') }),
-            )
-          }),
-          h(Birds, { x: right ? 60 + rng() * 60 : 170 + rng() * 40, y: 40 + rng() * 24, color: night ? '#9aa6cf' : '#5a3d2b' }),
-        )
-      }
-      if (sea === 'chat') {
-        const texts = tokens.length ? tokens : ['…', '+1', '…']
-        return h(
-          'g',
-          null,
-          h('path', { d: 'M4 128q22-24 50-21q20 2 30 21z', fill: dim('#6b5a9e') }),
-          h('path', { d: 'M22 113q14-8 30-6q-16 3-22 10z', fill: dim('#8b7bc0'), opacity: 0.85 }),
-          h('path', { d: 'M204 128q26-30 62-25q22 4 34 25z', fill: dim('#6b5a9e') }),
-          h('path', { d: 'M226 110q18-12 40-8q-22 4-30 14z', fill: dim('#8b7bc0'), opacity: 0.85 }),
-          h('path', { d: 'M150 128q8-9 20-8q10 1 14 8z', fill: dim('#7868ad') }),
-          ...texts.slice(0, 3).map((t, i) => {
-            const x = 44 + i * 78 + rng() * 16
-            const y = 34 + rng() * 30
-            const w = Math.max(26, t.length * 10 + 12)
-            return h(
-              'g',
-              { key: i, transform: `translate(${x} ${y})`, className: 'wv-bob', style: { animationDelay: `${-i * 0.7}s` } },
-              h('rect', { x: -w / 2 + 1, y: -9.5, width: w, height: 22, rx: 10, fill: '#3a2a7a', opacity: 0.12 }),
-              h('rect', { x: -w / 2, y: -11, width: w, height: 22, rx: 10, fill: '#ffffff' }),
-              h('path', { d: i % 2 ? 'M6 10l5 8-11-8' : 'M-6 10l-5 8 11-8', fill: '#ffffff' }),
-              h('text', { x: 0, y: 4, fontSize: 9.5, fontWeight: 600, textAnchor: 'middle', fill: ink }, t),
-            )
-          }),
-          h(Birds, { x: 120 + rng() * 60, y: 84 + rng() * 14, color: night ? '#b3a8e6' : '#5a49b2', s: 0.9 }),
-        )
-      }
-      // 起雾：远处只剩一座灯塔的影子。
-      return h(
-        'g',
-        null,
-        h('path', { d: 'M196 128q10-12 26-11q18 0 26 11z', fill: '#8791a0', opacity: 0.6 }),
-        h('path', { d: 'M215 117L217 84H225L227 117ZM214 84h14l-7-8z', fill: '#8791a0', opacity: 0.6 }),
-      )
-    }
-
-    function FogLayer({ rng }) {
-      return h(
-        'g',
-        null,
-        ...[0, 1, 2, 3, 4].map((i) => h('rect', { key: i, x: -60 + rng() * 120, y: 26 + i * 27 + rng() * 8, width: 250 + rng() * 90, height: 13 + rng() * 6, rx: 9, fill: '#ffffff', opacity: 0.34 + rng() * 0.2 })),
-      )
-    }
-
-    /** 论文深海：整张都在水下。光柱、发光的纸页、水母、海底的海草。 */
-    function DeepScene({ rng, tokens, gid }) {
-      const pages = Math.min(6, 3 + (tokens.length || 0))
-      const jelly = 1 + Math.floor(rng() * 2)
-      const wx = 80 + rng() * 120
-      const wy = 96 + rng() * 34
-      const flip = rng() < 0.4
-      return h(
-        'g',
-        null,
-        ...[0, 1, 2].map((i) => {
-          const x = 30 + i * 90 + rng() * 40
-          return h('path', { key: `l${i}`, d: `M${x} 0L${x + 26} 0L${x - 30 + rng() * 20} 200L${x - 74} 200Z`, fill: '#bcd9ff', opacity: 0.07, className: 'wv-glow' })
-        }),
-        tokens[0] ? h('text', { x: 16, y: 24, fontSize: 9, fill: '#cfe3ff', opacity: 0.8, fontFamily: 'Georgia,serif', fontStyle: 'italic' }, tokens[0]) : null,
-        ...Array.from({ length: pages }, (_, i) => {
-          const x = 28 + rng() * 240
-          const y = 44 + rng() * 104
-          const r = -25 + rng() * 50
-          return h(
-            'g',
-            { key: i, transform: `translate(${x} ${y}) rotate(${r})`, className: 'wv-bob', style: { animationDelay: `${-rng() * 3}s` } },
-            h('circle', { r: 17, fill: '#fff6c9', opacity: 0.1 }),
-            h('rect', { x: -8, y: -10.5, width: 16, height: 21, rx: 1.5, fill: '#f8f3d9', opacity: 0.94 }),
-            h('path', { d: 'M-5 -6h10M-5 -2.5h10M-5 1h7M-5 4.5h9', stroke: '#8a7f52', strokeWidth: 0.9 }),
-          )
-        }),
-        ...Array.from({ length: jelly }, (_, i) => {
-          const x = 40 + rng() * 220
-          const y = 40 + rng() * 60
-          const c = i % 2 ? '#a7c8ff' : '#f7a8d8'
-          return h(
-            'g',
-            { key: `j${i}`, transform: `translate(${x} ${y})`, opacity: 0.85, className: 'wv-float' },
-            h('circle', { r: 15, fill: c, opacity: 0.12 }),
-            h('path', { d: 'M-9 0a9 8 0 0 1 18 0q-9 3-18 0z', fill: c }),
-            h('path', { d: 'M-6 1q-2 6 0 12M-2 1.5q2 7 0 15M2 1.5q-2 7 0 14M6 1q2 6 0 11', stroke: c, strokeWidth: 1.1, fill: 'none', strokeLinecap: 'round' }),
-          )
-        }),
-        // 海底
-        h('path', { d: 'M0 180q40-16 86-8q46-14 100-4q54-12 114 6V200H0z', fill: '#06122b' }),
-        h('path', { d: 'M0 190q60-12 130-6q80-10 170 4V200H0z', fill: '#040c1f' }),
-        ...Array.from({ length: 7 }, (_, i) => {
-          const x = 10 + i * 44 + rng() * 22
-          const hgt = 14 + rng() * 20
-          return h('path', { key: `w${i}`, d: `M${x} 192q-5 ${-hgt / 3} 0 ${(-hgt * 2) / 3}t0 ${-hgt / 3}`, stroke: i % 2 ? '#1d6f6a' : '#195c7a', strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' })
-        }),
-        ...Array.from({ length: 9 }, (_, i) => h('circle', { key: `b${i}`, cx: 16 + rng() * 270, cy: 14 + rng() * 150, r: 0.9 + rng() * 2, fill: 'none', stroke: '#cfe3ff', strokeWidth: 0.8, opacity: 0.6 })),
-        // 大肥鱼和它吐的泡泡
-        h(Whale, { x: wx, y: wy, scale: 0.42, flip }),
-        ...[0, 1, 2].map((i) => h('circle', { key: `wb${i}`, cx: wx + (flip ? -1 : 1) * (22 + i * 3), cy: wy - 12 - i * 9, r: 1.6 + i * 0.7, fill: 'none', stroke: '#e3f1fc', strokeWidth: 0.9, opacity: 0.8 })),
-      )
-    }
-
     function pickPose(rng) {
       const r = rng()
       if (r < 0.34) return 'swim'
-      if (r < 0.58) return 'spout'
+      if (r < 0.6) return 'spout'
       if (r < 0.82) return 'jump'
       return 'peek'
     }
 
-    /** 大肥鱼画在第一层浪和第二层浪之间，下半身被前面的浪盖住。 */
-    function WhaleInScene({ pose, rng, side = null }) {
-      const flip = rng() < 0.4
-      const x = side === 'left' ? 56 + rng() * 70 : side === 'right' ? 176 + rng() * 70 : 74 + rng() * 116
-      const dir = flip ? -1 : 1
+    const SPARKLE = 'M0 -5Q0.7 -0.7 5 0Q0.7 0.7 0 5Q-0.7 0.7 -5 0Q-0.7 -0.7 0 -5Z'
+    const HEART = 'M0 3C-6 -1 -3.5 -5.5 0 -2.5C3.5 -5.5 6 -1 0 3Z'
+
+    /** 扇贝边的浪：一排小圆拱，顶上一道白沫。 */
+    function ScallopBand({ y, fill, phase = 0, speed = 0 }) {
+      let top = `M${-WL - phase} ${y}`
+      for (let x = -WL - phase; x < 300 + WL * 2; x += 22) top += 'a11 5.5 0 0 1 22 0'
+      return h(
+        'g',
+        { className: speed ? 'wv-wave' : '', style: speed ? { animationDuration: `${speed}s` } : undefined },
+        h('path', { d: `${top}V200H${-WL * 2}Z`, fill }),
+        h('path', { d: top, fill: 'none', stroke: '#ffffff', strokeWidth: 1.7, strokeLinecap: 'round', opacity: 0.92 }),
+      )
+    }
+
+    function SunFace({ x, y }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y})` },
+        ...[0, 45, 90, 135, 180, 225, 270, 315].map((a) => h('path', { key: a, transform: `rotate(${a})`, d: 'M0 -18.5V-22.5', stroke: '#ffc93c', strokeWidth: 2.6, strokeLinecap: 'round' })),
+        h('circle', { r: 14, fill: '#ffd95a', ...OL }),
+        h('circle', { cx: -4.6, cy: -1.5, r: 1.4, fill: INK }),
+        h('circle', { cx: 4.6, cy: -1.5, r: 1.4, fill: INK }),
+        h('path', { d: 'M-3 3q3 3.2 6 0', stroke: INK, strokeWidth: 1.5, fill: 'none', strokeLinecap: 'round' }),
+        h('ellipse', { cx: -8.6, cy: 3, rx: 2.6, ry: 1.7, fill: '#ff9f7a', opacity: 0.85 }),
+        h('ellipse', { cx: 8.6, cy: 3, rx: 2.6, ry: 1.7, fill: '#ff9f7a', opacity: 0.85 }),
+      )
+    }
+
+    function MoonFace({ x, y }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y})` },
+        h('circle', { r: 21, fill: '#fff1b8', opacity: 0.14 }),
+        h('path', { d: 'M5 -14A14 14 0 1 0 14 5A11 11 0 0 1 5 -14Z', fill: '#fff1b8', ...OL }),
+        h('path', { d: 'M-8 -1q2.2 2.2 4.4 0', stroke: INK, strokeWidth: 1.4, fill: 'none', strokeLinecap: 'round' }),
+        h('path', { d: 'M-6.5 4.5q1.6 1.6 3.2 0', stroke: INK, strokeWidth: 1.3, fill: 'none', strokeLinecap: 'round' }),
+        h('ellipse', { cx: -10, cy: 3, rx: 2.2, ry: 1.4, fill: '#ffb38a', opacity: 0.8 }),
+        h('text', { x: 15, y: -9, fontSize: 8, fontWeight: 700, fill: '#fff1b8' }, 'z'),
+        h('text', { x: 21, y: -15, fontSize: 6, fontWeight: 700, fill: '#fff1b8' }, 'z'),
+      )
+    }
+
+    function CuteCloud({ x, y, s = 1, face = false, fill = '#ffffff', sleepy = false }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y}) scale(${s})` },
+        h('path', { d: 'M-22 6a8 8 0 0 1 2-15.5a12 12 0 0 1 22-4a9 9 0 0 1 15 6a7 7 0 0 1 1 13.5z', fill, ...OL, strokeWidth: 1.7 / s }),
+        face
+          ? h(
+              'g',
+              null,
+              sleepy
+                ? h('path', { d: 'M-8 -3q1.8 1.8 3.6 0M3 -3q1.8 1.8 3.6 0', stroke: INK, strokeWidth: 1.3 / s, fill: 'none', strokeLinecap: 'round' })
+                : h('g', null, h('circle', { cx: -6, cy: -3, r: 1.2, fill: INK }), h('circle', { cx: 5, cy: -3, r: 1.2, fill: INK })),
+              h('path', { d: 'M-2.4 0q1.9 2 3.8 0', stroke: INK, strokeWidth: 1.2 / s, fill: 'none', strokeLinecap: 'round' }),
+              h('ellipse', { cx: -10, cy: 0.5, rx: 2.2, ry: 1.4, fill: '#ffb3c7', opacity: 0.9 }),
+              h('ellipse', { cx: 9, cy: 0.5, rx: 2.2, ry: 1.4, fill: '#ffb3c7', opacity: 0.9 }),
+            )
+          : null,
+      )
+    }
+
+    function SmileStar({ x, y, s = 1, rot = 0 }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y}) rotate(${rot}) scale(${s})` },
+        h('path', { d: 'M0 -11L3.3 -3.6L11 -3.3L5 1.7L6.8 9.9L0 5.6L-6.8 9.9L-5 1.7L-11 -3.3L-3.3 -3.6Z', fill: '#ffd95a', ...OL, strokeWidth: 1.7 / s }),
+        h('circle', { cx: -2.4, cy: -0.6, r: 0.95, fill: INK }),
+        h('circle', { cx: 2.4, cy: -0.6, r: 0.95, fill: INK }),
+        h('path', { d: 'M-1.5 1.8q1.5 1.6 3 0', stroke: INK, strokeWidth: 1 / s, fill: 'none', strokeLinecap: 'round' }),
+      )
+    }
+
+    function RoundTree({ x, y, s = 1 }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y}) scale(${s})` },
+        h('path', { d: 'M0 0V-8', stroke: '#9a6b42', strokeWidth: 2.6, strokeLinecap: 'round' }),
+        h('circle', { cx: 0, cy: -13, r: 7.5, fill: '#6fcf8a', ...OL }),
+        h('path', { d: 'M-3.5 -15.5q2-2.4 5-2', stroke: '#b4ecc2', strokeWidth: 1.6, fill: 'none', strokeLinecap: 'round' }),
+      )
+    }
+
+    function CuteHouse({ x, y, label, lit }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y})` },
+        h('rect', { x: 0, y: 0, width: 34, height: 24, rx: 3.5, fill: '#fff6e3', ...OL }),
+        h('path', { d: 'M-4.5 2L17 -15L38.5 2Z', fill: '#ff8e7a', ...OL }),
+        h('rect', { x: 4, y: 6, width: 26, height: 12, rx: 3, fill: lit ? '#ffe9a8' : '#ffffff', stroke: INK, strokeWidth: 1.2 }),
+        h('text', { x: 17, y: label.length > 4 ? 14.6 : 15.2, fontSize: label.length > 4 ? 6.6 : 8.4, textAnchor: 'middle', fill: INK, fontWeight: 700, fontFamily: 'ui-monospace,Menlo,monospace' }, label),
+        h('path', { transform: 'translate(27 -13) scale(0.9)', d: HEART, fill: '#ff8fb0' }),
+      )
+    }
+
+    function Seagull({ x, y }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y})` },
+        h('path', { d: 'M-3 6v5M2 6v5', stroke: '#ff9f43', strokeWidth: 1.5, strokeLinecap: 'round' }),
+        h('ellipse', { cx: 0, cy: 0, rx: 9, ry: 6.5, fill: '#ffffff', ...OL }),
+        h('circle', { cx: 7, cy: -6.5, r: 4.8, fill: '#ffffff', ...OL }),
+        h('path', { d: 'M11.4 -7l5 1.4l-5 1.6z', fill: '#ff9f43', stroke: INK, strokeWidth: 1.1, strokeLinejoin: 'round' }),
+        h('circle', { cx: 8.2, cy: -7.2, r: 0.95, fill: INK }),
+        h('path', { d: 'M-6 -1q4 5 9 0', stroke: INK, strokeWidth: 1.4, fill: '#dfe6f2', strokeLinecap: 'round' }),
+      )
+    }
+
+    function PaperBoat({ x, y }) {
+      return h(
+        'g',
+        { transform: `translate(${x} ${y})` },
+        h('path', { d: 'M0 -2V-19L11 -5Z', fill: '#ffb37a', ...OL }),
+        h('path', { d: 'M-2 -3V-14L-9 -4Z', fill: '#fff6e3', ...OL }),
+        h('path', { d: 'M-13 -2H13L8 6H-8Z', fill: '#ffffff', ...OL }),
+      )
+    }
+
+    /** 每片海的主景物，画在大肥鱼的一侧。dx 把右侧的画法平移到左侧。 */
+    function SideProp({ sea, side, focus, tod }) {
+      const dx = side === 'right' ? 0 : -190
+      const lit = tod === 'night' || tod === 'dusk'
+      if (sea === 'code') {
+        return h(
+          'g',
+          { transform: `translate(${dx} 0)` },
+          h('path', { d: 'M202 126q46-50 96 0z', fill: '#8fdc9f', ...OL }),
+          h('path', { d: 'M226 104q20-13 42-8', stroke: '#c0f0c9', strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' }),
+          h(RoundTree, { x: 222, y: 112, s: 0.95 }),
+          h(RoundTree, { x: 284, y: 114, s: 0.8 }),
+          h(CuteHouse, { x: 234, y: 84, label: focus || '{ }', lit }),
+        )
+      }
+      if (sea === 'danmaku') {
+        return h(
+          'g',
+          { transform: `translate(${dx} 0)` },
+          h('path', { d: 'M200 126q48-24 100-10v10z', fill: '#ffe7bd', ...OL }),
+          h('path', { d: 'M250 118V88', stroke: '#9a6b42', strokeWidth: 2.2, strokeLinecap: 'round' }),
+          h('path', { d: 'M229 91a21 17 0 0 1 42 0z', fill: '#ff8fb5', ...OL }),
+          h('path', { d: 'M243 91a21 17 0 0 1 7-16.4a21 17 0 0 1 7 16.4z', fill: '#ffffff', ...OL }),
+          h('circle', { cx: 250, cy: 73.5, r: 1.8, fill: '#ff8fb5', stroke: INK, strokeWidth: 1 }),
+          h('path', { transform: 'translate(278 116) rotate(16) scale(0.62)', d: 'M0 -11L3.3 -3.6L11 -3.3L5 1.7L6.8 9.9L0 5.6L-6.8 9.9L-5 1.7L-11 -3.3L-3.3 -3.6Z', fill: '#ffab73', stroke: INK, strokeWidth: 2, strokeLinejoin: 'round' }),
+        )
+      }
+      if (sea === 'chat') {
+        return h(
+          'g',
+          { transform: `translate(${dx} 0)` },
+          h('path', { d: 'M212 126q8-32 42-30q32 2 42 30z', fill: '#b3a6e6', ...OL }),
+          h('path', { d: 'M232 106q12-7 26-5', stroke: '#d6cdf7', strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' }),
+          h(Seagull, { x: 252, y: 84 }),
+        )
+      }
+      if (sea === 'hacker') {
+        return h(
+          'g',
+          { transform: `translate(${dx} 0)` },
+          lit ? h('path', { d: side === 'right' ? 'M244 60L120 34V88Z' : 'M256 60L380 34V88Z', fill: '#fff3c4', opacity: 0.32, className: 'wv-beam' }) : null,
+          h('path', { d: 'M208 126q14-24 42-22q30 0 46 22z', fill: '#96a6cc', ...OL }),
+          h('path', { d: 'M239 110L242.5 70H257.5L261 110Z', fill: '#ffffff', ...OL }),
+          h('path', { d: 'M240.6 92H259.4L260.3 102H239.7Z', fill: '#ff7d6b', stroke: INK, strokeWidth: 1.2, strokeLinejoin: 'round' }),
+          h('rect', { x: 238.5, y: 66, width: 23, height: 5, rx: 2, fill: '#6a7aa6', ...OL }),
+          h('rect', { x: 243.5, y: 54, width: 13, height: 12, rx: 2.5, fill: '#ffe9a8', ...OL }),
+          h('path', { d: 'M241 54.5L250 43.5L259 54.5Z', fill: '#ff7d6b', ...OL }),
+          h('circle', { cx: 246.4, cy: 79, r: 1.25, fill: INK }),
+          h('circle', { cx: 253.6, cy: 79, r: 1.25, fill: INK }),
+          h('path', { d: 'M248 82.6q2 2 4 0', stroke: INK, strokeWidth: 1.2, fill: 'none', strokeLinecap: 'round' }),
+          h('ellipse', { cx: 243.6, cy: 82.4, rx: 1.9, ry: 1.2, fill: '#ffb3c7' }),
+          h('ellipse', { cx: 256.4, cy: 82.4, rx: 1.9, ry: 1.2, fill: '#ffb3c7' }),
+        )
+      }
+      return null
+    }
+
+    /** 带回的那样东西说成一句话：闲聊礁是对话气泡，弹幕湾是一条弹幕。 */
+    function TalkTag({ kind, x, y, text }) {
+      const w = Math.max(36, [...text].length * 11 + 20)
+      const l = -w / 2
+      const r = w / 2
+      if (kind === 'chat') {
+        return h(
+          'g',
+          { transform: `translate(${x} ${y})`, className: 'wv-bob' },
+          h('path', { d: `M${l + 10} -11H${r - 10}a10 10 0 0 1 10 10V1a10 10 0 0 1-10 10H${r - 12}l7 10l-17-10H${l + 10}a10 10 0 0 1-10-10V-1a10 10 0 0 1 10-10Z`, fill: '#ffffff', ...OL }),
+          h('text', { x: 0, y: 4.2, fontSize: 10.5, fontWeight: 700, textAnchor: 'middle', fill: INK }, text),
+        )
+      }
+      return h(
+        'g',
+        { transform: `translate(${x} ${y}) rotate(-5)`, className: 'wv-bob' },
+        h('path', { d: `M${r + 6} -3.5h9M${r + 6} 3.5h5`, stroke: '#ffffff', strokeWidth: 2.4, strokeLinecap: 'round' }),
+        h('rect', { x: l, y: -11, width: w, height: 22, rx: 11, fill: '#ffc2d8', ...OL }),
+        h('text', { x: 0, y: 4.2, fontSize: 10.5, fontWeight: 700, textAnchor: 'middle', fill: INK }, text),
+      )
+    }
+
+    function WhaleHero({ pose, x, flip, hat, mood }) {
       if (pose === 'jump') {
+        const dir = flip ? -1 : 1
         return h(
           'g',
           null,
-          h('g', { transform: `translate(${x} 112) rotate(${-22 * dir})` }, h(Whale, { scale: 0.42, flip })),
-          ...[0, 1, 2, 3, 4, 5].map((i) => h('circle', { key: i, cx: x - 20 * dir + (rng() - 0.5) * 34, cy: 128 - rng() * 14, r: 1.3 + rng() * 2, fill: '#ffffff', opacity: 0.9 })),
-          h('path', { d: `M${x - 20 * dir - 20} 131q10-9 20 0q10-9 20 0`, stroke: '#ffffff', strokeWidth: 2, fill: 'none', opacity: 0.85, strokeLinecap: 'round' }),
+          h('g', { transform: `translate(${x} 98) rotate(${-17 * dir})` }, h(Whale, { scale: 0.7, flip, cute: true, mood: 'wow', hat })),
+          ...[-34, -22, -8, 8, 20].map((d, i) => h('circle', { key: i, cx: x - 14 * dir + d, cy: 118 - (i % 2) * 7 - (i === 2 ? 5 : 0), r: 2.2 + (i % 3) * 0.6, fill: '#ffffff', stroke: INK, strokeWidth: 1.1 })),
         )
       }
-      if (pose === 'peek') return h(Whale, { x, y: 149, scale: 0.5, flip })
-      return h(Whale, { x, y: 143, scale: 0.42, flip, spout: pose === 'spout' ? 'still' : null })
+      if (pose === 'peek') return h(Whale, { x, y: 137, scale: 0.78, flip, cute: true, mood: 'calm', hat })
+      return h(Whale, { x, y: 130, scale: 0.78, flip, cute: true, mood, hat, spout: pose === 'spout' ? 'still' : null })
+    }
+
+    /** 论文深海：整张在水下。大肥鱼戴着眼镜，面前漂着那一页论文。 */
+    function DeepHero({ rng, focus, x }) {
+      const y = 104 + rng() * 10
+      return h(
+        'g',
+        null,
+        h('path', { d: 'M40 0H74L10 200H-50Z', fill: '#cfe1ff', opacity: 0.1, className: 'wv-glow' }),
+        h('path', { d: 'M176 0H204L150 200H96Z', fill: '#cfe1ff', opacity: 0.08, className: 'wv-glow' }),
+        // 水母
+        h(
+          'g',
+          { transform: `translate(${46 + rng() * 16} ${58 + rng() * 14})`, className: 'wv-float' },
+          h('path', { d: 'M-7 2q-2 7 0 13M-2.5 2.5q2 8 0 16M2.5 2.5q-2 8 0 15M7 2q2 7 0 12', stroke: '#ffb3d9', strokeWidth: 1.6, fill: 'none', strokeLinecap: 'round' }),
+          h('path', { d: 'M-11 2a11 10 0 0 1 22 0q-11 4-22 0z', fill: '#ffc2e2', ...OL }),
+          h('circle', { cx: -3.4, cy: -2.5, r: 1.1, fill: INK }),
+          h('circle', { cx: 3.4, cy: -2.5, r: 1.1, fill: INK }),
+          h('path', { d: 'M-1.6 0q1.6 1.6 3.2 0', stroke: INK, strokeWidth: 1, fill: 'none', strokeLinecap: 'round' }),
+        ),
+        // 海底和海草
+        h('path', { d: 'M-22 186a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0a11 6 0 0 1 22 0V200H-22Z', fill: '#16296a' }),
+        ...[26, 58, 214, 246, 276].map((sx, i) => {
+          const hgt = 18 + rng() * 18
+          return h('path', { key: `w${i}`, d: `M${sx} 190q-6 ${-hgt / 3} 0 ${(-hgt * 2) / 3}t0 ${-hgt / 3}`, stroke: i % 2 ? '#5fd3b6' : '#7fe0a8', strokeWidth: 3.4, fill: 'none', strokeLinecap: 'round' })
+        }),
+        ...Array.from({ length: 7 }, (_, i) => h('circle', { key: `b${i}`, cx: 16 + rng() * 270, cy: 16 + rng() * 150, r: 1.4 + rng() * 2.4, fill: '#ffffff', fillOpacity: 0.16, stroke: '#e3eeff', strokeWidth: 1, opacity: 0.8 })),
+        // 那一页论文
+        h(
+          'g',
+          { transform: `translate(${x + 70} ${y - 6}) rotate(9)`, className: 'wv-bob' },
+          h('circle', { r: 30, fill: '#fff6c9', opacity: 0.16 }),
+          h('rect', { x: -15, y: -20, width: 30, height: 40, rx: 3, fill: '#fffbe6', ...OL }),
+          h('path', { d: 'M-9 -12h18', stroke: INK, strokeWidth: 2.2, strokeLinecap: 'round' }),
+          h('path', { d: 'M-9 -5h18M-9 0h18M-9 5h13M-9 10h16', stroke: '#b9a86a', strokeWidth: 1.4, strokeLinecap: 'round' }),
+          h('path', { transform: 'translate(9 13) scale(0.8)', d: HEART, fill: '#ff8fb0' }),
+        ),
+        focus ? h('text', { x: 14, y: 26, fontSize: 9.5, fill: '#e6f0ff', fontFamily: 'Georgia,serif', fontStyle: 'italic' }, `“${focus}”`) : null,
+        h(Whale, { x, y, scale: 0.78, cute: true, mood: rng() < 0.5 ? 'happy' : 'calm', hat: 'glasses' }),
+        ...[0, 1, 2].map((i) => h('circle', { key: `wb${i}`, cx: x + 40 + i * 4, cy: y - 22 - i * 11, r: 2 + i * 0.9, fill: '#ffffff', fillOpacity: 0.2, stroke: '#ffffff', strokeWidth: 1.1 })),
+      )
     }
 
     function PostcardArt({ card }) {
       const seaId = card.sea || 'fog'
-      const pal = PALETTES[seaId] || PALETTES.fog
+      const pal = CUTE[seaId] || CUTE.fog
       const rng = seeded(card.id)
       const tod = timeOfDay(card.returnedAt)
       const deep = seaId === 'paper'
-      const weather = pickWeather(rng, tod, seaId)
-      const sky = cardSky(seaId, pal, tod)
-      const tokens = tokensFrom(card)
-      const posed = pickPose(rng)
-      // 黑客海峡这一侧有小船，不让它跃出水面砸到船上。
-      const pose = seaId === 'hacker' && posed === 'jump' ? 'spout' : posed
-      const lighthouseRight = rng() < 0.5
-      const light = pickLight(rng, tod, weather, seaId)
-      const night = tod === 'night' && !deep && seaId !== 'fog'
-      const tint = (c) => (night ? mix(c, '#0b1530', 0.4) : tod === 'dusk' && !deep && seaId !== 'fog' ? mix(c, '#b3563f', 0.14) : c)
-      const bands = [tint(mix(pal.sea[0], '#ffffff', 0.16)), tint(mix(pal.sea[0], pal.sea[1], 0.45)), tint(pal.sea[1])]
+      const fog = seaId === 'fog'
+      const plain = deep || fog
+      const weather = plain ? 'clear' : pickWeather(rng, tod)
+      const night = tod === 'night' && !plain
+      const sky = plain || tod === 'day' ? pal.sky : CUTE_SKIES[tod]
+      const focus = focusWord(card)
+      const pose = fog ? 'swim' : pickPose(rng)
+      const talk = seaId === 'chat' || seaId === 'danmaku'
+      const side = talk || rng() < 0.5 ? 'right' : 'left'
+      const flip = side === 'left'
+      const x = 142 + rng() * 16
+      const mood = pose === 'spout' || rng() < 0.4 ? 'happy' : 'calm'
+      const tint = (c) => (night ? mix(c, '#23265e', 0.4) : tod === 'dusk' && !plain ? mix(c, '#c76a5a', 0.12) : c)
       const gid = `wv-g-${String(card.id).slice(0, 8)}`
-      const ink = night || deep ? '#ff9aa8' : '#b23a48'
+      const ink = night || deep ? '#ffb3c0' : '#c9506a'
+      const label = card.place ? `寄自 ${card.place}` : ''
+      const labelW = 26 + [...label].length * 11.4
       return h(
         'svg',
         { viewBox: '0 0 300 200', className: 'wv-art', role: 'img', 'aria-label': `${card.seaName} 的风景` },
-        h('defs', null, h('linearGradient', { id: `${gid}-sky`, x1: 0, y1: 0, x2: 0, y2: 1 }, h('stop', { offset: 0, stopColor: sky[0] }), h('stop', { offset: deep ? 1 : 0.66, stopColor: sky[1] }))),
+        h('defs', null, h('linearGradient', { id: `${gid}-sky`, x1: 0, y1: 0, x2: 0, y2: 1 }, h('stop', { offset: 0, stopColor: sky[0] }), h('stop', { offset: deep ? 1 : 0.62, stopColor: sky[1] }))),
         h('rect', { width: 300, height: 200, fill: `url(#${gid}-sky)` }),
         deep
-          ? h(DeepScene, { rng, tokens, gid })
+          ? h(DeepHero, { rng, focus, x: 128 + rng() * 14 })
           : h(
               'g',
               null,
-              h(SkyLayer, { tod, weather, rng, light, skyTop: sky[0] }),
-              h(SeaDecor, { sea: seaId, rng, ink: pal.ink, tokens, tod, sky, lighthouseRight }),
-              h(WaveBand, { y: 127, amp: 2.2, phase: rng() * WL, fill: bands[0], speed: 11 }),
-              light && light.kind !== 'sun' ? h(Reflection, { x: light.x, y0: 126, color: light.color, rng, opacity: light.kind === 'moon' ? 0.4 : 0.6 }) : null,
-              h(WhaleInScene, { pose, rng, side: seaId === 'hacker' ? (lighthouseRight ? 'left' : 'right') : null }),
-              h(WaveBand, { y: 152, amp: 3, phase: rng() * WL, fill: bands[1], speed: 8 }),
-              h(WaveBand, { y: 174, amp: 3.4, phase: rng() * WL, fill: bands[2], speed: 6 }),
-              h(Glints, { rng, y0: 134, y1: 192, opacity: night ? 0.2 : 0.38 }),
-              seaId === 'fog' ? h(FogLayer, { rng }) : null,
-              weather === 'rain' ? h(RainLayer, { rng }) : null,
+              // 清晨和傍晚：一轮大太阳垫在大肥鱼身后
+              !fog && (tod === 'dawn' || tod === 'dusk')
+                ? h('g', null, h('circle', { cx: 150, cy: 124, r: 60, fill: tod === 'dawn' ? '#fff0c2' : '#ffd29c', opacity: 0.45 }), h('circle', { cx: 150, cy: 124, r: 46, fill: tod === 'dawn' ? '#ffe9a8' : '#ffc38a' }))
+                : null,
+              night ? Array.from({ length: 11 }, (_, i) => h('path', { key: `n${i}`, transform: `translate(${14 + rng() * 272} ${12 + rng() * 96}) scale(${0.4 + rng() * 0.5})`, d: SPARKLE, fill: '#fff1b8', opacity: 0.9, className: i % 3 === 0 ? 'wv-blink' : '' })) : null,
+              night ? h(MoonFace, { x: 34, y: 32 }) : null,
+              !fog && tod === 'day' && (weather === 'clear' || weather === 'rainbow') ? h(SunFace, { x: 34, y: 34 }) : null,
+              weather === 'rainbow'
+                ? h('g', null, ...['#ff9aa2', '#ffd08a', '#b5e8a8', '#9fd3ff'].map((c, i) => h('path', { key: c, d: `M${150 - 84 + i * 8} 126a${84 - i * 8} ${84 - i * 8} 0 0 1 ${168 - i * 16} 0`, stroke: c, strokeWidth: 8.4, fill: 'none', opacity: 0.85 })))
+                : null,
+              weather === 'clouds' || weather === 'rain' ? h(CuteCloud, { x: 96 + rng() * 80, y: 26 + rng() * 6, s: 1.15, face: true, fill: night ? '#d9dcf7' : '#ffffff' }) : null,
+              weather === 'clouds' ? h(CuteCloud, { x: side === 'right' ? 70 : 190, y: 62, s: 0.75, fill: night ? '#d9dcf7' : '#ffffff' }) : null,
+              h(SideProp, { sea: seaId, side, focus, tod }),
+              seaId === 'code' ? h(SmileStar, { x: side === 'right' ? 88 + rng() * 14 : 176 + rng() * 10, y: 50 + rng() * 10, s: 1.05, rot: -12 + rng() * 24 }) : null,
+              h(ScallopBand, { y: 123, fill: tint(pal.sea[0]), phase: rng() * 22, speed: 12 }),
+              seaId === 'hacker' ? h(PaperBoat, { x: side === 'right' ? 46 + rng() * 14 : 244 + rng() * 14, y: 122 }) : null,
+              h(WhaleHero, { pose, x, flip, hat: pal.hat, mood }),
+              h(ScallopBand, { y: 147, fill: tint(pal.sea[1]), phase: rng() * 22, speed: 9 }),
+              h(ScallopBand, { y: 172, fill: tint(pal.sea[2]), phase: rng() * 22, speed: 7 }),
+              talk && focus ? h(TalkTag, { kind: seaId, x: x - (seaId === 'chat' ? 52 : 44), y: pose === 'jump' ? 40 : 66, text: focus }) : null,
+              // 起雾：它有点懵
+              fog
+                ? h(
+                    'g',
+                    null,
+                    h('text', { x: x + 26, y: 92, fontSize: 20, fontWeight: 800, fill: INK, opacity: 0.75 }, '?'),
+                    h('path', { transform: `translate(${x - 4} 104)`, d: 'M0 -5C3 0 3 3.5 0 3.5C-3 3.5 -3 0 0 -5Z', fill: '#9fd3ff', stroke: INK, strokeWidth: 1.1 }),
+                    h(CuteCloud, { x: 62, y: 58, s: 1.7, face: true, sleepy: true }),
+                    h(CuteCloud, { x: 236, y: 104, s: 1.5, face: true, sleepy: true }),
+                    h(CuteCloud, { x: 96, y: 160, s: 1.3 }),
+                  )
+                : null,
+              !night && !fog ? Array.from({ length: 4 }, (_, i) => h('path', { key: `sp${i}`, transform: `translate(${60 + rng() * 180} ${16 + rng() * 84}) scale(${0.5 + rng() * 0.5})`, d: SPARKLE, fill: '#ffffff', opacity: 0.95 })) : null,
+              weather === 'rain'
+                ? Array.from({ length: 12 }, (_, i) => h('path', { key: `r${i}`, transform: `translate(${14 + rng() * 272} ${48 + rng() * 66})`, d: 'M0 -5C3 0 3 3.5 0 3.5C-3 3.5 -3 0 0 -5Z', fill: '#a9dbf8', stroke: INK, strokeWidth: 0.9 }))
+                : null,
             ),
         // 白边
-        h('rect', { x: 4.5, y: 4.5, width: 291, height: 191, rx: 3, fill: 'none', stroke: '#ffffff', strokeWidth: 1.4, opacity: 0.6 }),
+        h('rect', { x: 3.5, y: 3.5, width: 293, height: 193, rx: 5, fill: 'none', stroke: '#ffffff', strokeWidth: 7 }),
         // 邮票
         h(
           'g',
-          { transform: 'translate(247 12) rotate(2 20 24)' },
-          h('rect', { x: 1, y: 1.5, width: 40, height: 48, fill: '#000000', opacity: 0.12 }),
-          h('rect', { width: 40, height: 48, fill: '#fffaf0', stroke: '#e0c9a6', strokeDasharray: '3 2', strokeWidth: 2 }),
-          h('rect', { x: 5, y: 5, width: 30, height: 30, fill: mix(pal.sea[0], '#ffffff', 0.2) }),
-          h('path', { d: 'M5 26q7.5-4 15 0t10 0v9H5z', fill: pal.sea[1], opacity: 0.55 }),
-          h(Whale, { x: 21.5, y: 21, scale: 0.17 }),
+          { transform: 'translate(245 13) rotate(3 20 24)' },
+          h('rect', { x: 1.2, y: 1.8, width: 40, height: 48, fill: INK, opacity: 0.16 }),
+          h('rect', { width: 40, height: 48, fill: '#fffaf0', stroke: '#e6cfa8', strokeDasharray: '3 2', strokeWidth: 2 }),
+          h('rect', { x: 5, y: 5, width: 30, height: 30, rx: 2, fill: mix(pal.sea[0], '#ffffff', 0.35) }),
+          h('path', { d: 'M5 27a5 3 0 0 1 10 0a5 3 0 0 1 10 0a5 3 0 0 1 10 0V35H5z', fill: pal.sea[1] }),
+          h(Whale, { x: 21.5, y: 20.5, scale: 0.19, cute: true, mood: 'happy' }),
           h('text', { x: 20, y: 44, fontSize: 6, textAnchor: 'middle', fill: '#8a6d3b' }, '港口邮政'),
         ),
-        // 邮戳：圆戳加三道波浪销票线
+        // 邮戳
         h(
           'g',
-          { transform: `translate(222 54) rotate(${-22 + rng() * 16})`, opacity: 0.72, stroke: ink, fill: 'none' },
-          h('circle', { r: 19.5, strokeWidth: 1.5 }),
-          h('circle', { r: 16.4, strokeWidth: 0.6 }),
-          h('path', { d: 'M21 -8q5-4 10 0t10 0t10 0M21 0q5-4 10 0t10 0t10 0M21 8q5-4 10 0t10 0t10 0', strokeWidth: 1.1, strokeLinecap: 'round' }),
+          { transform: `translate(221 56) rotate(${-20 + rng() * 14})`, opacity: 0.78, stroke: ink, fill: 'none' },
+          h('circle', { r: 19, strokeWidth: 1.5 }),
+          h('circle', { r: 16, strokeWidth: 0.6 }),
+          h('path', { d: 'M20.5 -7q5-4 10 0t10 0t10 0M20.5 1q5-4 10 0t10 0t10 0M20.5 9q5-4 10 0t10 0t10 0', strokeWidth: 1.1, strokeLinecap: 'round' }),
           h('text', { y: -3, fontSize: 7, textAnchor: 'middle', fill: ink, stroke: 'none', fontWeight: 700 }, card.seaName || ''),
           h('text', { y: 8, fontSize: 5.4, textAnchor: 'middle', fill: ink, stroke: 'none' }, dateStamp(card.returnedAt)),
         ),
-        card.place
-          ? h('text', { x: 13, y: 188, fontSize: 12, fill: '#ffffff', className: 'wv-hand', stroke: '#06203a', strokeOpacity: 0.35, strokeWidth: 2, paintOrder: 'stroke', strokeLinejoin: 'round' }, `寄自 ${card.place}`)
+        // 落款的小布条
+        label
+          ? h(
+              'g',
+              { transform: 'translate(12 169)' },
+              h('rect', { x: 1, y: 1.6, width: labelW, height: 20, rx: 10, fill: INK, opacity: 0.18 }),
+              h('rect', { width: labelW, height: 20, rx: 10, fill: '#fffdf6', stroke: INK, strokeWidth: 1.5 }),
+              h('path', { transform: 'translate(12.5 10.4) scale(1.05)', d: HEART, fill: '#ff8fb0' }),
+              h('text', { x: 21, y: 14.2, fontSize: 11, fill: INK, className: 'wv-hand' }, label),
+            )
           : null,
       )
     }
@@ -805,15 +875,20 @@ window.__ModuleLoader__.load({
           ),
           card.items && card.items.length
             ? h(
-                'ul',
-                { className: 'wv-gifts' },
-                ...card.items.map((it, i) =>
-                  h(
-                    'li',
-                    { key: i },
-                    h('a', { href: it.url, target: '_blank', rel: 'noreferrer noopener' }, it.title),
-                    it.why ? h('span', { className: 'wv-why' }, it.why) : it.note ? h('span', { className: 'wv-why' }, it.note) : null,
-                    it.meta ? h('span', { className: 'wv-gift-meta' }, it.meta) : null,
+                'div',
+                { className: 'wv-gift-box' },
+                h('span', { className: 'wv-gift-label' }, card.items.length > 1 ? '这次带回来的' : '这次带回来一样东西'),
+                h(
+                  'ul',
+                  { className: 'wv-gifts' },
+                  ...card.items.map((it, i) =>
+                    h(
+                      'li',
+                      { key: i },
+                      h('a', { href: it.url, target: '_blank', rel: 'noreferrer noopener' }, it.title),
+                      it.why ? h('span', { className: 'wv-why' }, it.why) : it.note ? h('span', { className: 'wv-why' }, it.note) : null,
+                      it.meta ? h('span', { className: 'wv-gift-meta' }, it.meta) : null,
+                    ),
                   ),
                 ),
               )
@@ -1084,7 +1159,9 @@ window.__ModuleLoader__.load({
 .wv-msg{margin:0;font-size:17px;line-height:1.75}
 .wv-sign{margin:0;text-align:right;font-size:15px;color:#5a4a33}
 .wv-meta{margin:4px 0 0;font-size:12px;color:#8a7a62;line-height:1.6}
-.wv-gifts{list-style:none;margin:0;padding:0 0 0 16px;border-left:1px dashed #d8c7a8;display:flex;flex-direction:column;gap:12px}
+.wv-gift-box{display:flex;flex-direction:column;gap:8px;align-self:start;padding:12px 14px;border-radius:12px;background:#fff;border:1.5px solid #3f3a63;box-shadow:2px 3px 0 rgba(63,58,99,.16)}
+.wv-gift-label{align-self:flex-start;font-size:11px;font-weight:700;color:#3f3a63;background:#ffe08a;border-radius:999px;padding:2px 9px}
+.wv-gifts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
 .wv-gifts li{display:flex;flex-direction:column;gap:3px}
 .wv-gifts a{color:#1f5f9e;font-weight:600;font-size:14px;text-decoration:none;word-break:break-word}
 .wv-gifts a:hover{text-decoration:underline}
@@ -1130,7 +1207,7 @@ window.__ModuleLoader__.load({
 @keyframes wv-far{0%,100%{transform:translateX(0)}50%{transform:translateX(-18px)}}
 @keyframes wv-blink{0%,100%{opacity:.45}50%{opacity:1}}
 @keyframes wv-scroll{from{transform:translateX(320px)}to{transform:translateX(-120px)}}
-@media (max-width:600px){.wv-page{padding:14px 16px 40px}.wv-back{grid-template-columns:1fr}.wv-gifts{padding:12px 0 0;border-left:0;border-top:1px dashed #d8c7a8}}
+@media (max-width:600px){.wv-page{padding:14px 16px 40px}.wv-back{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.wv-root *{animation:none!important;transition:none!important}}
 `
 
