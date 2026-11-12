@@ -150,10 +150,11 @@ window.__ModuleLoader__.load({
         h('path', { d: 'M-38 10c14 16 52 18 76 2-6 14-28 22-46 20-14-2-26-10-30-22z', fill: '#cfe4f7' }),
         h('path', { d: 'M-4 14c4 8 12 12 18 12-4-6-6-10-6-14', fill: '#4f7fb6' }),
         sleepy
-          ? h('path', { d: 'M20 -6q5 4 10 0', stroke: '#1d3557', strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' })
-          : h('circle', { cx: 25, cy: -5, r: 3.6, fill: '#1d3557' }),
-        h('ellipse', { cx: 31, cy: 5, rx: 5, ry: 3, fill: '#f4a6b8', opacity: 0.8 }),
-        h('path', { d: 'M34 12q4 3 8 0', stroke: '#1d3557', strokeWidth: 1.8, fill: 'none', strokeLinecap: 'round' }),
+          ? h('path', { d: 'M19 -7q5 4 10 0', stroke: '#1d3557', strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' })
+          : h('circle', { cx: 24, cy: -6, r: 3.6, fill: '#1d3557' }),
+        h('ellipse', { cx: 27, cy: 4, rx: 4.5, ry: 2.6, fill: '#f4a6b8', opacity: 0.8 }),
+        // 嘴在吻部前端、腹线上方，不压到白肚皮的边。
+        h('path', { d: 'M36 1q3.5 3.2 7 0', stroke: '#1d3557', strokeWidth: 1.8, fill: 'none', strokeLinecap: 'round' }),
       )
     }
 
