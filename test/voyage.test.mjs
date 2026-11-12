@@ -50,13 +50,68 @@ test('挑海域：跟着纸条时只去能用关键词的海；没去过的海�
   assert.ok(chat / 600 > 0.25, `没去过的闲聊礁应约占 1/3，实际 ${chat / 600}`)
 })
 
-test('优先列出含关键词的条目', () => {
+test('候选：含关键词的排前面', () => {
   const items = [
-    { title: 'a', note: '' },
-    { title: 'Rust engine', note: '' },
-    { title: 'c', note: 'rust' },
+    { title: 'a', note: '', url: 'u:a' },
+    { title: 'Rust engine', note: '', url: 'u:b' },
+    { title: 'c', note: 'rust', url: 'u:c' },
   ]
-  assert.deepEqual(shortlist(items, ['rust']).map((i) => i.title), ['Rust engine', 'c', 'a'])
+  const got = shortlist(items, ['rust']).map((i) => i.title)
+  assert.equal(got[2], 'a')
+  assert.deepEqual(new Set(got.slice(0, 2)), new Set(['Rust engine', 'c']))
+})
+
+test('候选：带回过的链接拿掉；剩下不到 3 条才用旧的补在最后', () => {
+  const items = ['a', 'b', 'c', 'd', 'e'].map((t) => ({ title: t, note: '', url: `u:${t}` }))
+  const got = shortlist(items, [], { seen: new Set(['u:a', 'u:b']) }).map((i) => i.title)
+  assert.deepEqual(new Set(got), new Set(['c', 'd', 'e']))
+  const few = shortlist(items, [], { seen: new Set(['u:a', 'u:b', 'u:c', 'u:d']) }).map((i) => i.title)
+  assert.equal(few[0], 'e')
+  assert.equal(few.length, 5)
+})
+
+test('候选：同一份榜单，每趟顺序不一样', () => {
+  const items = Array.from({ length: 30 }, (_, i) => ({ title: `r${i}`, note: '', url: `u:${i}` }))
+  const a = shortlist(items).map((i) => i.title).join()
+  const b = shortlist(items).map((i) => i.title).join()
+  assert.notEqual(a, b)
+})
+
+test('连不上的海：24 小时内很少再挑，备选时排在最后，过期后恢复', async () => {
+  const now = BJ(2026, 11, 12, 20)
+  const unreachable = { paper: now - 3_600_000, hacker: now - 3_600_000, chat: now - 3_600_000 }
+  let x = 7
+  const rng = () => ((x = (x * 9301 + 49297) % 233280), x / 233280)
+  let bad = 0
+  for (let i = 0; i < 600; i += 1) if (unreachable[chooseSea({ rng, unreachable, now }).sea.id]) bad += 1
+  assert.ok(bad / 600 < 0.25, `连不上的海应很少被挑，实际 ${bad / 600}`)
+  const later = now + 25 * 3_600_000
+  bad = 0
+  for (let i = 0; i < 600; i += 1) if (unreachable[chooseSea({ rng, unreachable, now: later }).sea.id]) bad += 1
+  assert.ok(bad / 600 > 0.4, `过了 24 小时应恢复正常，实际 ${bad / 600}`)
+
+  const order = []
+  const fetchImpl = async (url) => {
+    order.push(String(url))
+    return new Response('x', { status: 500 })
+  }
+  const warn = console.warn
+  console.warn = () => {}
+  try {
+    const got = await sail({ sea: SEAS.find((s) => s.id === 'hacker'), fetchImpl, now, unreachable })
+    assert.deepEqual(got.tried.slice(0, 1), ['hacker'])
+    assert.deepEqual(new Set(got.tried.slice(1, 3)), new Set(['code', 'danmaku']))
+    assert.deepEqual(new Set(got.failed), new Set(SEAS.map((s) => s.id)))
+  } finally {
+    console.warn = warn
+  }
+})
+
+test('回港时记下连不上的海，连上了就清掉', () => {
+  const t0 = Date.now()
+  const s = { ...freshState(t0), unreachable: { code: t0 - 1000 } }
+  const back = arrive(s, { id: 'p', sea: 'code', failedSeas: ['paper', 'hacker'], items: [] }, t0)
+  assert.deepEqual(Object.keys(back.unreachable).sort(), ['hacker', 'paper'])
 })
 
 test('读模型回的明信片：抠 JSON、丢掉越界和重复编号、最多 3 件', () => {

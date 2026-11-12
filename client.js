@@ -404,7 +404,9 @@ window.__ModuleLoader__.load({
               { className: 'wv-meta' },
               `${card.seaName}${card.place ? ` · ${card.place}` : ''} · ${when(card.returnedAt)} 回港`,
               card.wish ? ` · 揣着纸条「${card.wish}」` : '',
-              card.plannedSea && card.sea && card.plannedSea !== card.sea ? ' · 原定那片海去不了，绕路了' : '',
+              card.plannedSea && card.sea && card.plannedSea !== card.sea
+                ? ` · 本来想去${card.plannedSeaName || '另一片海'}，你这边的网络连不上那里，就改道来了${card.seaName}`
+                : '',
             ),
           ),
           card.items && card.items.length
@@ -544,8 +546,9 @@ window.__ModuleLoader__.load({
             h(
               'li',
               { key: s.id, className: s.visited ? 'is-known' : '' },
-              h('strong', null, s.visited ? s.name : '？？？'),
+              h('strong', null, s.visited || s.unreachable ? s.name : '？？？'),
               h('span', null, s.visited ? `${s.blurb} · 去过 ${s.visited} 次` : '还没去过'),
+              s.unreachable ? h('span', { className: 'wv-fogged' }, '最近起雾：你的网络连不上这里，它会少来几趟') : null,
             ),
           ),
         ),
@@ -706,6 +709,7 @@ window.__ModuleLoader__.load({
 .wv-seas li.is-known{border-style:solid;background:var(--wv-card);color:var(--wv-ink)}
 .wv-seas strong{font-size:14px}
 .wv-seas span{font-size:12px;color:var(--wv-sub)}
+.wv-seas .wv-fogged{color:#b07a2a}
 .wv-toggle{display:flex;gap:10px;align-items:flex-start;padding:8px 0;cursor:pointer}
 .wv-toggle input{margin-top:3px}
 .wv-toggle span{display:flex;flex-direction:column;gap:2px}

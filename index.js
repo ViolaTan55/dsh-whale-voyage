@@ -23,6 +23,7 @@ import {
   nextOffPeak,
   parsePostcardReply,
   postcardPrompt,
+  recentlyUnreachable,
   restDuration,
   sail,
   seaById,
@@ -52,6 +53,7 @@ export function freshState(now = Date.now(), rng = Math.random) {
     whale: { status: 'home', since: now, departAt: now + Math.min(restDuration(settings, rng), 10 * 60_000), trip: null },
     postcards: [],
     visited: {},
+    unreachable: {},
     wish: '',
     settings,
   }
@@ -76,7 +78,7 @@ export function advance(state, now = Date.now(), rng = Math.random) {
 }
 
 export function depart(state, now = Date.now(), rng = Math.random) {
-  const { sea, followWish } = chooseSea({ visited: state.visited, wish: state.wish, rng })
+  const { sea, followWish } = chooseSea({ visited: state.visited, wish: state.wish, rng, unreachable: state.unreachable || {}, now })
   return {
     ...state,
     whale: {
@@ -96,13 +98,17 @@ export function depart(state, now = Date.now(), rng = Math.random) {
   }
 }
 
-/** 航程结算后的状态：收下明信片、回港、排下一次出门。 */
+/** 航程结算后的状态：收下明信片、记下这趟连不上和连得上的海、回港、排下一次出门。 */
 export function arrive(state, postcard, now = Date.now(), rng = Math.random) {
   const visited = { ...state.visited }
   if (postcard.sea) visited[postcard.sea] = (visited[postcard.sea] || 0) + 1
+  const unreachable = { ...(state.unreachable || {}) }
+  for (const id of postcard.failedSeas || []) unreachable[id] = now
+  if (postcard.sea) delete unreachable[postcard.sea]
   return {
     ...state,
     visited,
+    unreachable,
     postcards: [postcard, ...state.postcards].slice(0, MAX_POSTCARDS),
     whale: { status: 'home', since: now, departAt: now + restDuration(state.settings, rng), trip: null },
   }
@@ -179,12 +185,14 @@ async function makePostcard(ctx, state, now) {
   const trip = state.whale.trip
   const planned = seaById(trip.sea) || SEAS[0]
   const keywords = wishKeywords(trip.wish)
-  const { sea, items } = await sail({ sea: planned, keywords })
+  const { sea, items, failed } = await sail({ sea: planned, keywords, now, unreachable: state.unreachable || {} })
   const base = {
     id: trip.id,
     sea: sea.id,
     seaName: sea.name,
     plannedSea: planned.id,
+    plannedSeaName: planned.name,
+    failedSeas: failed,
     wish: trip.wish || '',
     departedAt: trip.departedAt,
     returnedAt: now,
@@ -192,7 +200,9 @@ async function makePostcard(ctx, state, now) {
   }
   if (!items.length) return { ...base, sea: null, seaName: '雾里', ...foggyPostcard(), items: [], model: null }
 
-  const pool = shortlist(items, keywords)
+  // 以前带回过的东西不再带：从明信片册里收集已带回的链接。
+  const seen = new Set(state.postcards.flatMap((p) => (p.items || []).map((it) => it.url)))
+  const pool = shortlist(items, keywords, { seen })
   let card = null
   try {
     card = await writeWithModel(ctx, { sea, wish: trip.wish, items: pool })
@@ -311,7 +321,13 @@ export function apply(ctx) {
       unread: state.postcards.filter((p) => !p.read).length,
       wish: state.wish,
       settings: state.settings,
-      seas: SEAS.map((s) => ({ id: s.id, name: s.name, blurb: s.blurb, visited: state.visited[s.id] || 0 })),
+      seas: SEAS.map((s) => ({
+        id: s.id,
+        name: s.name,
+        blurb: s.blurb,
+        visited: state.visited[s.id] || 0,
+        unreachable: recentlyUnreachable(state.unreachable || {}, s.id, now),
+      })),
     }
   }
 

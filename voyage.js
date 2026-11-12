@@ -39,11 +39,16 @@ function daysAgo(n, now = Date.now()) {
   return new Date(now - n * 86_400_000).toISOString().slice(0, 10)
 }
 
-/** GitHub：最近一周新建、星数最多的仓库；有纸条关键词时按关键词搜。 */
-export async function fetchCode({ keywords = [], fetchImpl, now } = {}) {
+/**
+ * GitHub：最近新建、星数靠前的仓库；有纸条关键词时按关键词搜。
+ * 每趟随机换时间窗（3 / 7 / 14 天）和页码，免得一天里总落在同一份榜单的同一页。
+ */
+export async function fetchCode({ keywords = [], fetchImpl, now, rng = Math.random } = {}) {
   const kw = keywords.slice(0, 2).join(' ')
-  const q = encodeURIComponent(`${kw ? `${kw} ` : ''}created:>${daysAgo(7, now)}`)
-  const data = await getJson(`https://api.github.com/search/repositories?q=${q}&sort=stars&order=desc&per_page=${MAX_ITEMS}`, {
+  const window = [3, 7, 14][Math.floor(rng() * 3)]
+  const page = kw ? 1 : 1 + Math.floor(rng() * 3)
+  const q = encodeURIComponent(`${kw ? `${kw} ` : ''}created:>${daysAgo(window, now)}`)
+  const data = await getJson(`https://api.github.com/search/repositories?q=${q}&sort=stars&order=desc&per_page=${MAX_ITEMS}&page=${page}`, {
     fetchImpl,
     headers: { accept: 'application/vnd.github+json' },
   })
@@ -56,12 +61,13 @@ export async function fetchCode({ keywords = [], fetchImpl, now } = {}) {
 }
 
 /** arXiv：AI / 计算语言学方向最新提交的论文；有关键词时全文搜。 */
-export async function fetchPaper({ keywords = [], fetchImpl } = {}) {
+export async function fetchPaper({ keywords = [], fetchImpl, rng = Math.random } = {}) {
   const query = keywords.length
     ? keywords.slice(0, 2).map((k) => `all:${encodeURIComponent(k)}`).join('+AND+')
     : 'cat:cs.AI+OR+cat:cs.CL+OR+cat:cs.LG'
+  const start = keywords.length ? 0 : Math.floor(rng() * 3) * MAX_ITEMS
   const xml = await getText(
-    `https://export.arxiv.org/api/query?search_query=${query}&sortBy=submittedDate&sortOrder=descending&max_results=${MAX_ITEMS}`,
+    `https://export.arxiv.org/api/query?search_query=${query}&sortBy=submittedDate&sortOrder=descending&start=${start}&max_results=${MAX_ITEMS}`,
     { fetchImpl },
   )
   return parseArxiv(xml)
@@ -85,8 +91,9 @@ export function parseArxiv(xml) {
 }
 
 /** B 站：综合热门。 */
-export async function fetchDanmaku({ fetchImpl } = {}) {
-  const data = await getJson(`https://api.bilibili.com/x/web-interface/popular?ps=${MAX_ITEMS}&pn=1`, {
+export async function fetchDanmaku({ fetchImpl, rng = Math.random } = {}) {
+  const pn = 1 + Math.floor(rng() * 3)
+  const data = await getJson(`https://api.bilibili.com/x/web-interface/popular?ps=${MAX_ITEMS}&pn=${pn}`, {
     fetchImpl,
     headers: { 'user-agent': 'Mozilla/5.0', referer: 'https://www.bilibili.com/' },
   })
@@ -127,7 +134,7 @@ export async function fetchChat({ fetchImpl } = {}) {
 }
 
 export const SEAS = [
-  { id: 'code', name: '代码群岛', blurb: 'GitHub 上这周刚冒出来的新仓库', keywordFriendly: true, fetch: fetchCode },
+  { id: 'code', name: '代码群岛', blurb: 'GitHub 上最近冒出来的新仓库', keywordFriendly: true, fetch: fetchCode },
   { id: 'paper', name: '论文深海', blurb: 'arXiv 上新挂出来的论文', keywordFriendly: true, fetch: fetchPaper },
   { id: 'danmaku', name: '弹幕湾', blurb: 'B 站正在热播的视频', keywordFriendly: false, fetch: fetchDanmaku },
   { id: 'hacker', name: '黑客海峡', blurb: 'Hacker News 上大家在聊的', keywordFriendly: true, fetch: fetchHacker },
@@ -147,16 +154,24 @@ export function wishKeywords(wish) {
     .slice(0, 4)
 }
 
+/** 连不上的海记多久：24 小时内少去，过后网络可能恢复了，再正常挑。 */
+export const UNREACHABLE_MEMORY_MS = 24 * 3_600_000
+
+export function recentlyUnreachable(unreachable = {}, seaId, now = Date.now()) {
+  const at = unreachable[seaId]
+  return typeof at === 'number' && now - at < UNREACHABLE_MEMORY_MS
+}
+
 /**
  * 挑海域：大肥鱼有自己的主意。有纸条时七成去关键词能用上的海，否则随便逛；
- * 没去过的海权重翻倍。
+ * 没去过的海权重翻倍；24 小时内连不上的海权重降到一成（偶尔还会去试试网络恢复了没有）。
  */
-export function chooseSea({ visited = {}, wish = '', rng = Math.random, available = SEAS } = {}) {
+export function chooseSea({ visited = {}, wish = '', rng = Math.random, available = SEAS, unreachable = {}, now = Date.now() } = {}) {
   const hasWish = wishKeywords(wish).length > 0
   const followWish = hasWish && rng() < 0.7
   const pool = available.filter((s) => (followWish ? s.keywordFriendly : true))
   const list = pool.length ? pool : available
-  const weights = list.map((s) => ((visited[s.id] || 0) === 0 ? 2 : 1))
+  const weights = list.map((s) => ((visited[s.id] || 0) === 0 ? 2 : 1) * (recentlyUnreachable(unreachable, s.id, now) ? 0.1 : 1))
   let r = rng() * weights.reduce((a, b) => a + b, 0)
   for (let i = 0; i < list.length; i += 1) {
     r -= weights[i]
@@ -206,13 +221,19 @@ export function nextOffPeak(epochMs) {
 
 /* ------------------------------------------------------------------ 明信片 */
 
-/** 有纸条时把含关键词的条目排前面，其余保持原顺序；最多给模型 12 条。 */
-export function shortlist(items, keywords = [], limit = 12) {
+/**
+ * 给模型的候选（最多 12 条）：
+ * - 以前带回过的链接（seen）先拿掉；拿掉后不到 3 条才用旧的补齐，免得空手而归。
+ * - 含纸条关键词的排前面；同一档里随机打乱，每趟看到的候选不一样。
+ */
+export function shortlist(items, keywords = [], { limit = 12, seen = new Set(), rng = Math.random } = {}) {
   const kws = keywords.map((k) => k.toLowerCase())
-  const scored = items.map((it, i) => {
+  const fresh = items.filter((it) => !seen.has(it.url))
+  const pool = fresh.length >= 3 ? fresh : [...fresh, ...items.filter((it) => seen.has(it.url))]
+  const scored = pool.map((it) => {
     const text = `${it.title} ${it.note}`.toLowerCase()
     const hits = kws.filter((k) => text.includes(k)).length
-    return { it, score: hits * 100 - i }
+    return { it, score: hits * 100 + (seen.has(it.url) ? -1000 : 0) + rng() * 10 }
   })
   scored.sort((a, b) => b.score - a.score)
   return scored.slice(0, limit).map((s) => s.it)
@@ -315,22 +336,29 @@ export function foggyPostcard({ rng = Math.random } = {}) {
 
 /**
  * 去一趟海：按顺序试这片海和备选海，取到第一批非空条目为止。
- * @returns {{ sea, items, tried: string[] }}  items 为空表示全都起雾。
+ * 备选海里，最近连不上的排到最后，少白等超时。
+ * @returns {{ sea, items, tried: string[], failed: string[] }}  items 为空表示全都起雾；failed 是这趟连不上的海。
  */
-export async function sail({ sea, keywords = [], fetchImpl, now, rng = Math.random, fallbacks = SEAS.length - 1 }) {
-  const others = SEAS.filter((s) => s.id !== sea.id).sort(() => rng() - 0.5).slice(0, fallbacks)
+export async function sail({ sea, keywords = [], fetchImpl, now = Date.now(), rng = Math.random, fallbacks = SEAS.length - 1, unreachable = {} }) {
+  const others = SEAS.filter((s) => s.id !== sea.id)
+    .map((s) => ({ s, k: (recentlyUnreachable(unreachable, s.id, now) ? 1 : 0) + rng() * 0.5 }))
+    .sort((a, b) => a.k - b.k)
+    .map((x) => x.s)
+    .slice(0, fallbacks)
   const tried = []
+  const failed = []
   for (const s of [sea, ...others]) {
     tried.push(s.id)
     try {
       const kws = s.keywordFriendly ? keywords : []
-      let items = await s.fetch({ keywords: kws, fetchImpl, now })
-      if (!items.length && kws.length) items = await s.fetch({ keywords: [], fetchImpl, now })
+      let items = await s.fetch({ keywords: kws, fetchImpl, now, rng })
+      if (!items.length && kws.length) items = await s.fetch({ keywords: [], fetchImpl, now, rng })
       items = items.filter((it) => it && it.title && /^https?:\/\//.test(it.url || ''))
-      if (items.length) return { sea: s, items, tried }
+      if (items.length) return { sea: s, items, tried, failed }
     } catch (error) {
+      failed.push(s.id)
       console.warn(`[dsh-whale-voyage] ${s.name} 去不了：`, error && error.message ? error.message : error)
     }
   }
-  return { sea, items: [], tried }
+  return { sea, items: [], tried, failed }
 }
