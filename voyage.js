@@ -164,14 +164,17 @@ export function recentlyUnreachable(unreachable = {}, seaId, now = Date.now()) {
 
 /**
  * 挑海域：大肥鱼有自己的主意。有纸条时七成去关键词能用上的海，否则随便逛；
- * 没去过的海权重翻倍；24 小时内连不上的海权重降到一成（偶尔还会去试试网络恢复了没有）。
+ * 去得越少的海越容易被挑中（权重 1 /（1 + 去过的次数））；上一趟刚到过的海这一趟不去；
+ * 24 小时内连不上的海权重降到一成（偶尔还会去试试网络恢复了没有）。
  */
-export function chooseSea({ visited = {}, wish = '', rng = Math.random, available = SEAS, unreachable = {}, now = Date.now() } = {}) {
+export function chooseSea({ visited = {}, wish = '', rng = Math.random, available = SEAS, unreachable = {}, now = Date.now(), last = '' } = {}) {
   const hasWish = wishKeywords(wish).length > 0
   const followWish = hasWish && rng() < 0.7
   const pool = available.filter((s) => (followWish ? s.keywordFriendly : true))
-  const list = pool.length ? pool : available
-  const weights = list.map((s) => ((visited[s.id] || 0) === 0 ? 2 : 1) * (recentlyUnreachable(unreachable, s.id, now) ? 0.1 : 1))
+  const wide = pool.length ? pool : available
+  const fresh = wide.filter((s) => s.id !== last)
+  const list = fresh.length ? fresh : wide
+  const weights = list.map((s) => (1 / (1 + (visited[s.id] || 0))) * (recentlyUnreachable(unreachable, s.id, now) ? 0.1 : 1))
   let r = rng() * weights.reduce((a, b) => a + b, 0)
   for (let i = 0; i < list.length; i += 1) {
     r -= weights[i]

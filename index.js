@@ -78,7 +78,8 @@ export function advance(state, now = Date.now(), rng = Math.random) {
 }
 
 export function depart(state, now = Date.now(), rng = Math.random) {
-  const { sea, followWish } = chooseSea({ visited: state.visited, wish: state.wish, rng, unreachable: state.unreachable || {}, now })
+  const last = (state.postcards && state.postcards[0] && state.postcards[0].sea) || ''
+  const { sea, followWish } = chooseSea({ visited: state.visited, wish: state.wish, rng, unreachable: state.unreachable || {}, now, last })
   return {
     ...state,
     whale: {

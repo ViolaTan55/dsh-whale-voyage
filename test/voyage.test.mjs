@@ -50,6 +50,23 @@ test('挑海域：跟着纸条时只去能用关键词的海；没去过的海�
   assert.ok(chat / 600 > 0.25, `没去过的闲聊礁应约占 1/3，实际 ${chat / 600}`)
 })
 
+test('挑海域：上一趟刚到过的海这一趟不去；去得越多的海越少被挑中', () => {
+  let x = 3
+  const rng = () => ((x = (x * 9301 + 49297) % 233280), x / 233280)
+  const visited = { code: 2, danmaku: 4 }
+  const count = {}
+  for (let i = 0; i < 2000; i += 1) {
+    const id = chooseSea({ visited, rng, last: 'danmaku' }).sea.id
+    count[id] = (count[id] || 0) + 1
+  }
+  assert.equal(count.danmaku, undefined)
+  assert.ok(count.code < count.paper / 2, `去过 2 次的代码群岛应明显少于没去过的，实际 ${JSON.stringify(count)}`)
+  assert.equal(chooseSea({ rng, last: 'code', available: SEAS.filter((s) => s.id === 'code') }).sea.id, 'code')
+
+  const s = { ...freshState(Date.now()), postcards: [{ id: 'p', sea: 'danmaku' }], visited }
+  for (let i = 0; i < 50; i += 1) assert.notEqual(depart(s, Date.now(), rng).whale.trip.sea, 'danmaku')
+})
+
 test('候选：含关键词的排前面', () => {
   const items = [
     { title: 'a', note: '', url: 'u:a' },
