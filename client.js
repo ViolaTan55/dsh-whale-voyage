@@ -672,37 +672,37 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /** 俯视：从天上往下看，头朝上。连尾巴约 130×135，原点在背中间。 */
+    /** 俯视：从天上往下看，头朝上。和侧面一样是圆滚滚的身子后面接一条小尾巴；连鳍约 140×130，原点在背中间。 */
     function WhaleTop({ x = 0, y = 0, scale = 1, rot = 0 }) {
-      const body = 'M0 -56C19 -56 33 -43 33 -22C33 4 19 28 7 52C4 57 -4 57 -7 52C-19 28 -33 4 -33 -22C-33 -43 -19 -56 0 -56Z'
-      const fluke = 'M0 44C-10 54 -28 54 -43 60C-46 62 -45 66 -42 68C-30 76 -12 76 0 66C12 76 30 76 42 68C45 66 46 62 43 60C28 54 10 54 0 44Z'
-      const finL = 'M-28 -24C-44 -24 -60 -12 -66 6C-67 10 -63 12 -59 11C-46 8 -34 0 -28 -8Z'
-      const finR = 'M28 -24C44 -24 60 -12 66 6C67 10 63 12 59 11C46 8 34 0 28 -8Z'
+      const body = 'M0 -50C24 -50 40 -34 40 -10C40 14 28 36 12 44C6 47 -6 47 -12 44C-28 36 -40 14 -40 -10C-40 -34 -24 -50 0 -50Z'
+      const stock = 'M-9 38C-8 48 -5 55 0 60C5 55 8 48 9 38Z'
+      const fluke = 'M0 53C-8 59 -24 57 -40 63C-44 65 -44 70 -40 72C-28 79 -12 79 0 69C12 79 28 79 40 72C44 70 44 65 40 63C24 57 8 59 0 53Z'
+      const finL = 'M-36 -16C-52 -16 -66 -4 -70 12C-71 16 -67 18 -63 17C-52 14 -42 7 -35 -1Z'
+      const finR = 'M36 -16C52 -16 66 -4 70 12C71 16 67 18 63 17C52 14 42 7 35 -1Z'
       const line = (d, w, o) => h('path', { d, stroke: '#ffffff', strokeWidth: w, fill: 'none', strokeLinecap: 'round', opacity: o })
       return h(
         'g',
         { transform: `translate(${x} ${y}) rotate(${rot}) scale(${scale})` },
         // 身后拖着的尾迹，头两侧分开的水波
-        line('M-13 80Q-25 104 -45 126M13 80Q25 104 45 126', 2.2, 0.45),
-        line('M-4 84Q-7 104 -12 122M4 84Q7 104 12 122', 1.6, 0.28),
-        line('M-42 -48Q-58 -34 -72 -30M42 -48Q58 -34 72 -30', 1.8, 0.34),
+        line('M-13 82Q-25 106 -45 128M13 82Q25 106 45 128', 2.2, 0.45),
+        line('M-4 86Q-7 106 -12 124M4 86Q7 106 12 124', 1.6, 0.28),
+        line('M-48 -44Q-64 -30 -78 -26M48 -44Q64 -30 78 -26', 1.8, 0.34),
         // 水下的影子
-        h('g', { transform: 'translate(5 8)', fill: '#12304f', opacity: 0.2 }, h('path', { d: fluke }), h('path', { d: finL }), h('path', { d: finR }), h('path', { d: body })),
+        h('g', { transform: 'translate(5 8)', fill: '#12304f', opacity: 0.2 }, h('path', { d: fluke }), h('path', { d: stock }), h('path', { d: finL }), h('path', { d: finR }), h('path', { d: body })),
         // 鳍和尾
         h('path', { d: finL, fill: '#4a79b4' }),
         h('path', { d: finR, fill: '#4a79b4' }),
         h('path', { d: fluke, fill: '#4a79b4' }),
-        h('path', { d: 'M-34 62C-24 60 -12 62 -4 67M34 62C24 60 12 62 4 67', stroke: '#6f9bd1', strokeWidth: 2, strokeLinecap: 'round', fill: 'none', opacity: 0.7 }),
+        h('path', { d: stock, fill: '#4a79b4' }),
+        h('path', { d: 'M-32 65C-22 63 -11 65 -4 70M32 65C22 63 11 65 4 70', stroke: '#6f9bd1', strokeWidth: 2, strokeLinecap: 'round', fill: 'none', opacity: 0.7 }),
         // 背
         h('path', { d: body, fill: '#5c92d1' }),
-        h('path', { d: 'M-22 -34C-17 -46 -6 -50 4 -49', stroke: '#8db8ea', strokeWidth: 6, strokeLinecap: 'round', fill: 'none', opacity: 0.65 }),
-        h('path', { d: 'M0 -2C1 16 1 32 0 48', stroke: '#4a79b4', strokeWidth: 2.2, strokeLinecap: 'round', fill: 'none', opacity: 0.55 }),
-        // 眼睛在头两侧，只露一点
-        h('circle', { cx: -29, cy: -30, r: 2.8, fill: '#1d3557' }),
-        h('circle', { cx: 29, cy: -30, r: 2.8, fill: '#1d3557' }),
-        // 喷气孔和刚喷出来的水花
-        h('ellipse', { cx: 0, cy: -27, rx: 3.4, ry: 1.9, fill: '#3f6aa3' }),
-        line('M-2.5 -32Q-4 -40 -12 -41M2.5 -32Q4 -40 12 -41', 2, 0.9),
+        h('path', { d: 'M-28 -26C-22 -39 -9 -44 4 -43', stroke: '#8db8ea', strokeWidth: 6.5, strokeLinecap: 'round', fill: 'none', opacity: 0.7 }),
+        h('path', { d: 'M0 6C1 16 1 28 0 38', stroke: '#4a79b4', strokeWidth: 2.2, strokeLinecap: 'round', fill: 'none', opacity: 0.5 }),
+        // 眼睛在头两侧，只露一点；头顶是喷气孔
+        h('circle', { cx: -35, cy: -18, r: 3.2, fill: '#1d3557' }),
+        h('circle', { cx: 35, cy: -18, r: 3.2, fill: '#1d3557' }),
+        h('ellipse', { cx: 0, cy: -24, rx: 3.8, ry: 2.1, fill: '#3f6aa3' }),
       )
     }
 
