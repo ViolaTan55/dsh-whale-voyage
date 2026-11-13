@@ -32,6 +32,15 @@
     "大肥鱼"
   ],
   "license": "MIT",
+  "author": "ViolaTan55",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ViolaTan55/dsh-whale-voyage.git"
+  },
+  "homepage": "https://github.com/ViolaTan55/dsh-whale-voyage#readme",
+  "bugs": {
+    "url": "https://github.com/ViolaTan55/dsh-whale-voyage/issues"
+  },
   "engines": {
     "dsh": ">=0.2.1-rc.5 <0.3.0-0"
   },
