@@ -1,7 +1,7 @@
 {
   "name": "dsh-whale-voyage",
-  "version": "0.1.0",
-  "description": "大肥鱼出海：放养在 DSH 港口里的小鲸鱼，自己出门逛真实的互联网，回来寄给你一张明信片和几件土特产。",
+  "version": "0.1.1",
+  "description": "大肥鱼出海：放养在 DSH 港口里的小鲸鱼，自己出门逛真实的互联网，回来寄给你一张明信片和一件土特产。",
   "type": "module",
   "main": "index.js",
   "exports": {
