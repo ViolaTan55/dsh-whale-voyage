@@ -2,7 +2,7 @@
  * dsh-whale-voyage — 浏览器半区。
  *
  * 左侧图标栏加一个「出海」入口（有新明信片时亮一个小点）；主区是港口：
- *   大肥鱼在不在家、去了哪片海、什么时候回来 → 新寄回来的明信片 → 塞纸条 → 明信片册 → 海图 → 设置。
+ *   鲸鱼在不在家、去了哪片海、什么时候回来 → 新寄回来的明信片 → 塞纸条 → 明信片册 → 海图 → 设置。
  * 所有状态都来自宿主的 /api/dsh-whale-voyage/*，这里只负责画。
  */
 
@@ -138,7 +138,7 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /* ------------------------------------------------------------ 画：大肥鱼 */
+    /* ------------------------------------------------------------ 画：鲸鱼 */
 
     /** 两个 #rrggbb 颜色按 t 混合。 */
     function mix(a, b, t) {
@@ -159,7 +159,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /** 朝右的大肥鱼，原点在身体中心；身体约 100×63，尾巴向左翘到 x=-88。 */
+    /** 朝右的鲸鱼，原点在身体中心；身体约 100×63，尾巴向左翘到 x=-88。 */
     function Whale({ x = 0, y = 0, scale = 1, flip = false, sleepy = false, spout = null, className = '' }) {
       const t = `translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`
       return h(
@@ -191,7 +191,7 @@ window.__ModuleLoader__.load({
 
     const WL = 44
 
-    /** 一层浪：上沿是波浪线，往下填满。几层叠起来，把大肥鱼夹在中间，它就泡在水里了。 */
+    /** 一层浪：上沿是波浪线，往下填满。几层叠起来，把鲸鱼夹在中间，它就泡在水里了。 */
     function WaveBand({ y, amp = 3, phase = 0, fill, width = 300, depth = 200, opacity = 1, speed = 0 }) {
       let d = `M${-WL - phase} ${y}`
       for (let x = -WL - phase; x < width + WL * 2; x += WL) d += `q${WL / 4} ${-amp} ${WL / 2} 0t${WL / 2} 0`
@@ -278,7 +278,7 @@ window.__ModuleLoader__.load({
      * 每张明信片画的是「这一趟」：
      * - 回港时刻定天色（清晨 / 白天 / 傍晚 / 夜里），夜里有月亮和星星；
      * - 天气按这张卡随机（晴 / 多云 / 雨 / 彩虹）；
-     * - 大肥鱼的姿势随机（游 / 喷水 / 跃出水面 / 探头）；
+     * - 鲸鱼的姿势随机（游 / 喷水 / 跃出水面 / 探头）；
      * - 画里的字和物件来自它带回的东西：弹幕是视频标题片段，小房子门牌是仓库的语言，气泡是帖子开头。
      */
 
@@ -585,7 +585,7 @@ window.__ModuleLoader__.load({
           return h('path', { key: `w${i}`, d: `M${x} 192q-5 ${-hgt / 3} 0 ${(-hgt * 2) / 3}t0 ${-hgt / 3}`, stroke: i % 2 ? '#1d6f6a' : '#195c7a', strokeWidth: 2.4, fill: 'none', strokeLinecap: 'round' })
         }),
         ...Array.from({ length: 9 }, (_, i) => h('circle', { key: `b${i}`, cx: 16 + rng() * 270, cy: 14 + rng() * 150, r: 0.9 + rng() * 2, fill: 'none', stroke: '#cfe3ff', strokeWidth: 0.8, opacity: 0.6 })),
-        // 大肥鱼和它吐的泡泡
+        // 鲸鱼和它吐的泡泡
         h(Whale, { x: wx, y: wy, scale: 0.42, flip }),
         ...[0, 1, 2].map((i) => h('circle', { key: `wb${i}`, cx: wx + (flip ? -1 : 1) * (22 + i * 3), cy: wy - 12 - i * 9, r: 1.6 + i * 0.7, fill: 'none', stroke: '#e3f1fc', strokeWidth: 0.9, opacity: 0.8 })),
       )
@@ -599,7 +599,7 @@ window.__ModuleLoader__.load({
       return 'peek'
     }
 
-    /** 大肥鱼画在第一层浪和第二层浪之间，下半身被前面的浪盖住。 */
+    /** 鲸鱼画在第一层浪和第二层浪之间，下半身被前面的浪盖住。 */
     function WhaleInScene({ pose, rng, side = null }) {
       const flip = rng() < 0.4
       const x = side === 'left' ? 56 + rng() * 70 : side === 'right' ? 176 + rng() * 70 : 74 + rng() * 116
@@ -617,7 +617,7 @@ window.__ModuleLoader__.load({
       return h(Whale, { x, y: 143, scale: 0.42, flip, spout: pose === 'spout' ? 'still' : null })
     }
 
-    /* ---- 大肥鱼的另外几个角度：正脸、背影、俯视 ---- */
+    /* ---- 鲸鱼的另外几个角度：正脸、背影、俯视 ---- */
 
     /** 正脸：圆圆的大脸对着镜头。原点在脸中心，宽约 132、高约 116。 */
     function WhaleFront({ x = 0, y = 0, scale = 1, tilt = 0, mood = 'calm', spout = false }) {
@@ -948,7 +948,7 @@ window.__ModuleLoader__.load({
             : { x: 500, y: 40, r: 17, color: '#ffe27a', low: false }
       return h(
         'svg',
-        { viewBox: '0 0 600 220', className: 'wv-harbor', role: 'img', 'aria-label': home ? '大肥鱼在港口里' : '港口空着，大肥鱼出海了' },
+        { viewBox: '0 0 600 220', className: 'wv-harbor', role: 'img', 'aria-label': home ? '鲸鱼在港口里' : '港口空着，鲸鱼出海了' },
         h('defs', null, h('linearGradient', { id: 'wv-h-sky', x1: 0, y1: 0, x2: 0, y2: 1 }, h('stop', { offset: 0, stopColor: sky.top }), h('stop', { offset: 0.66, stopColor: sky.bottom }))),
         h('rect', { width: 600, height: 220, fill: 'url(#wv-h-sky)' }),
         night ? Array.from({ length: 22 }, (_, i) => h('circle', { key: i, cx: rng() * 600, cy: rng() * 110, r: 0.7 + rng() * 1.3, fill: '#fff', opacity: 0.45 + rng() * 0.5, className: i % 4 === 0 ? 'wv-blink' : '' })) : null,
@@ -1027,7 +1027,7 @@ window.__ModuleLoader__.load({
             'div',
             { className: 'wv-letter' },
             h('p', { className: 'wv-hand wv-msg' }, card.message),
-            h('p', { className: 'wv-sign wv-hand' }, '—— 大肥鱼'),
+            h('p', { className: 'wv-sign wv-hand' }, '—— 鲸鱼'),
             h(
               'p',
               { className: 'wv-meta' },
@@ -1241,7 +1241,7 @@ window.__ModuleLoader__.load({
           : h(
               'div',
               { className: 'wv-page' },
-              h('header', { className: 'wv-head' }, h('h2', null, '大肥鱼的港口'), state.peak ? h('span', { className: 'wv-chip' }, '现在是高峰时段') : h('span', { className: 'wv-chip is-ok' }, '现在是谷时')),
+              h('header', { className: 'wv-head' }, h('h2', null, '鲸鱼的港口'), state.peak ? h('span', { className: 'wv-chip' }, '现在是高峰时段') : h('span', { className: 'wv-chip is-ok' }, '现在是谷时')),
               h(Harbor, { state, now: now - (state.clientSkew || 0) }),
               h(Status, { state, now: now - (state.clientSkew || 0) }),
               fresh
