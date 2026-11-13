@@ -672,28 +672,37 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /** 俯视：从天上往下看，头朝上。身体约 60×110。 */
+    /** 俯视：从天上往下看，头朝上。连尾巴约 130×135，原点在背中间。 */
     function WhaleTop({ x = 0, y = 0, scale = 1, rot = 0 }) {
+      const body = 'M0 -56C19 -56 33 -43 33 -22C33 4 19 28 7 52C4 57 -4 57 -7 52C-19 28 -33 4 -33 -22C-33 -43 -19 -56 0 -56Z'
+      const fluke = 'M0 44C-10 54 -28 54 -43 60C-46 62 -45 66 -42 68C-30 76 -12 76 0 66C12 76 30 76 42 68C45 66 46 62 43 60C28 54 10 54 0 44Z'
+      const finL = 'M-28 -24C-44 -24 -60 -12 -66 6C-67 10 -63 12 -59 11C-46 8 -34 0 -28 -8Z'
+      const finR = 'M28 -24C44 -24 60 -12 66 6C67 10 63 12 59 11C46 8 34 0 28 -8Z'
+      const line = (d, w, o) => h('path', { d, stroke: '#ffffff', strokeWidth: w, fill: 'none', strokeLinecap: 'round', opacity: o })
       return h(
         'g',
         { transform: `translate(${x} ${y}) rotate(${rot}) scale(${scale})` },
-        // 尾迹和水纹
-        h('path', { d: 'M-9 64Q-22 96 -42 122M9 64Q22 96 42 122', stroke: '#ffffff', strokeWidth: 2.2, fill: 'none', strokeLinecap: 'round', opacity: 0.5 }),
-        h('path', { d: 'M-4 78Q-8 100 -14 118M4 78Q8 100 14 118', stroke: '#ffffff', strokeWidth: 1.6, fill: 'none', strokeLinecap: 'round', opacity: 0.3 }),
-        h('ellipse', { cx: 0, cy: 4, rx: 50, ry: 70, fill: 'none', stroke: '#ffffff', strokeWidth: 1.6, opacity: 0.28 }),
-        h('ellipse', { cx: 0, cy: 4, rx: 66, ry: 88, fill: 'none', stroke: '#ffffff', strokeWidth: 1.2, opacity: 0.14 }),
+        // 身后拖着的尾迹，头两侧分开的水波
+        line('M-13 80Q-25 104 -45 126M13 80Q25 104 45 126', 2.2, 0.45),
+        line('M-4 84Q-7 104 -12 122M4 84Q7 104 12 122', 1.6, 0.28),
+        line('M-42 -48Q-58 -34 -72 -30M42 -48Q58 -34 72 -30', 1.8, 0.34),
+        // 水下的影子
+        h('g', { transform: 'translate(5 8)', fill: '#12304f', opacity: 0.2 }, h('path', { d: fluke }), h('path', { d: finL }), h('path', { d: finR }), h('path', { d: body })),
         // 鳍和尾
-        h('path', { d: 'M-25 -12C-46 -8 -56 6 -56 20C-44 17 -32 9 -26 0Z', fill: '#4a79b4' }),
-        h('path', { d: 'M25 -12C46 -8 56 6 56 20C44 17 32 9 26 0Z', fill: '#4a79b4' }),
-        h('path', { d: 'M0 52C-10 58 -26 58 -32 72C-20 75 -8 71 0 64C8 71 20 75 32 72C26 58 10 58 0 52Z', fill: '#4a79b4' }),
-        // 身体
-        h('path', { d: 'M0 -50C22 -50 31 -26 29 0C27 26 12 46 0 60C-12 46 -27 26 -29 0C-31 -26 -22 -50 0 -50Z', fill: '#5c92d1' }),
-        h('path', { d: 'M0 -40C-3 -16 -3 14 0 44', stroke: '#8db8ea', strokeWidth: 6, strokeLinecap: 'round', fill: 'none', opacity: 0.55 }),
-        h('circle', { cx: -19, cy: -30, r: 2.6, fill: '#1d3557' }),
-        h('circle', { cx: 19, cy: -30, r: 2.6, fill: '#1d3557' }),
-        h('ellipse', { cx: -23, cy: -21, rx: 3.6, ry: 2.4, fill: '#f7a6ba', opacity: 0.7 }),
-        h('ellipse', { cx: 23, cy: -21, rx: 3.6, ry: 2.4, fill: '#f7a6ba', opacity: 0.7 }),
-        h('ellipse', { cx: 0, cy: -24, rx: 3, ry: 1.6, fill: '#3f6aa3' }),
+        h('path', { d: finL, fill: '#4a79b4' }),
+        h('path', { d: finR, fill: '#4a79b4' }),
+        h('path', { d: fluke, fill: '#4a79b4' }),
+        h('path', { d: 'M-34 62C-24 60 -12 62 -4 67M34 62C24 60 12 62 4 67', stroke: '#6f9bd1', strokeWidth: 2, strokeLinecap: 'round', fill: 'none', opacity: 0.7 }),
+        // 背
+        h('path', { d: body, fill: '#5c92d1' }),
+        h('path', { d: 'M-22 -34C-17 -46 -6 -50 4 -49', stroke: '#8db8ea', strokeWidth: 6, strokeLinecap: 'round', fill: 'none', opacity: 0.65 }),
+        h('path', { d: 'M0 -2C1 16 1 32 0 48', stroke: '#4a79b4', strokeWidth: 2.2, strokeLinecap: 'round', fill: 'none', opacity: 0.55 }),
+        // 眼睛在头两侧，只露一点
+        h('circle', { cx: -29, cy: -30, r: 2.8, fill: '#1d3557' }),
+        h('circle', { cx: 29, cy: -30, r: 2.8, fill: '#1d3557' }),
+        // 喷气孔和刚喷出来的水花
+        h('ellipse', { cx: 0, cy: -27, rx: 3.4, ry: 1.9, fill: '#3f6aa3' }),
+        line('M-2.5 -32Q-4 -40 -12 -41M2.5 -32Q4 -40 12 -41', 2, 0.9),
       )
     }
 
@@ -712,12 +721,15 @@ window.__ModuleLoader__.load({
 
     /** 俯拍：整张都是海面。 */
     function TopShot({ rng, bands, seaId, focus, night }) {
-      const x = 126 + rng() * 48
-      const y = 92 + rng() * 14
+      // 头朝右偏时整体靠左站，免得头顶到右上角的邮戳
       const rot = -55 + rng() * 110
+      const x = rot > 0 ? 104 + rng() * 36 : 136 + rng() * 40
+      const y = 90 + rng() * 12
       const floaty = () => {
-        const fx = x + (rng() < 0.5 ? -1 : 1) * (78 + rng() * 26)
-        const fy = 44 + rng() * 100
+        // 漂在旁边的小东西：放在头偏向的那一侧（尾巴和尾迹在另一侧），避开右上角的邮票邮戳和左下角的落款
+        const onRight = rot > 0
+        const fx = x + (onRight ? 1 : -1) * (84 + rng() * 22)
+        const fy = onRight ? 112 + rng() * 48 : 96 + rng() * 46
         if (seaId === 'code') return h('g', null, h(Star, { x: fx, y: fy, s: 1.7, rot: rng() * 40 }), h(Star, { x: fx + 16, y: fy + 20, s: 1.1, rot: rng() * 40 }))
         if (seaId === 'danmaku') return h('g', { transform: `translate(${fx} ${fy})` }, h('circle', { r: 11, fill: 'none', stroke: '#ffffff', strokeWidth: 7 }), h('circle', { r: 11, fill: 'none', stroke: '#ff7aa5', strokeWidth: 7, strokeDasharray: '8.6 8.7' }))
         if (seaId === 'hacker')
@@ -741,7 +753,7 @@ window.__ModuleLoader__.load({
           return h('path', { key: `r${i}`, d: `M${rx} ${ry}q9 -5 18 0`, stroke: '#ffffff', strokeWidth: 1.6, fill: 'none', strokeLinecap: 'round', opacity: night ? 0.16 : 0.3 })
         }),
         floaty(),
-        h(WhaleTop, { x, y, rot, scale: 0.92 }),
+        h(WhaleTop, { x, y, rot, scale: 0.86 }),
         seaId === 'danmaku' && focus
           ? h('text', { x: 16, y: 30, fontSize: 11, fontWeight: 700, fill: '#ffffff', opacity: 0.9, className: 'wv-scroll' }, focus)
           : null,
