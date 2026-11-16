@@ -125,6 +125,27 @@ function lowestEffort(info) {
  * 写明信片可用的模型路线：先用 DSH 的默认模型；默认路线没配凭据时（比如新建配置默认走 API key、
  * 而用户是账号登录），再试 DeepSeek 账号路线。
  */
+/**
+ * DSH 自己的访问检查（Host/Origin 围栏 + 浏览器登录），和它自家接口用的是同一道。
+ * 返回 undefined 表示放行，否则是该回的状态码（401 / 403）。
+ * 宿主没有这个服务时（早于 0.1.0-rc.8）放行，写接口仍有下面的同源检查；检查本身出错按拒绝算。
+ */
+export function hostRejection(ctx, req) {
+  let connection
+  try {
+    connection = ctx.get('connection')
+  } catch {
+    return undefined
+  }
+  const gate = connection && connection.requestRejection
+  if (typeof gate !== 'function') return undefined
+  try {
+    return gate.call(connection, req)
+  } catch {
+    return 403
+  }
+}
+
 export function candidateRoutes(selection) {
   const routes = []
   const add = (provider, model) => {
@@ -390,6 +411,14 @@ export function apply(ctx) {
       req.on('error', reject)
     })
 
+  /** DSH 自己的访问检查没放行就原样拒绝。返回 true 表示已经回了拒绝。 */
+  const refused = (req, res) => {
+    const status = hostRejection(ctx, req)
+    if (status === undefined) return false
+    send(res, status, { ok: false, error: status === 401 ? 'login-required' : 'forbidden' })
+    return true
+  }
+
   /** 同源检查：只接受本页面发来的写请求，挡掉别的网站借浏览器发的请求。 */
   const sameOrigin = (req) => {
     if (req.headers['x-whale-voyage'] !== '1') return false
@@ -408,6 +437,7 @@ export function apply(ctx) {
       path: `${API}/state`,
       handler: async (req, res) => {
         if (req.method !== 'GET') return send(res, 405, { ok: false, error: 'method-not-allowed' })
+        if (refused(req, res)) return
         await ready
         send(res, 200, { ok: true, state: view() })
       },
@@ -420,6 +450,7 @@ export function apply(ctx) {
       path: `${API}/action`,
       handler: async (req, res) => {
         if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'method-not-allowed' })
+        if (refused(req, res)) return
         if (!sameOrigin(req)) return send(res, 403, { ok: false, error: 'forbidden' })
         await ready
         try {

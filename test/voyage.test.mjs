@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { advance, arrive, candidateRoutes, depart, freshState } from '../index.js'
+import { advance, arrive, candidateRoutes, depart, freshState, hostRejection } from '../index.js'
 import {
   SEAS,
   chooseSea,
@@ -213,4 +213,18 @@ test('关掉自己出门就不会出门；手动送走照样能走', () => {
   const s = { ...freshState(t0), settings: { autoDepart: false, fastMode: false, offPeakOnly: false } }
   assert.equal(advance(s, t0 + 10 * 3_600_000).state.whale.status, 'home')
   assert.equal(depart(s, t0).whale.status, 'away')
+})
+
+test('访问检查：照 DSH 的结论办；宿主没有这道检查就放行；检查出错按拒绝算', () => {
+  const req = { headers: {} }
+  const host = (connection) => ({ get: (name) => (name === 'connection' ? connection : undefined) })
+  assert.equal(hostRejection(host({ requestRejection: () => undefined }), req), undefined)
+  assert.equal(hostRejection(host({ requestRejection: () => 401 }), req), 401)
+  assert.equal(hostRejection(host({ requestRejection: (r) => (r === req ? 403 : undefined) }), req), 403)
+  assert.equal(hostRejection(host(undefined), req), undefined)
+  assert.equal(hostRejection(host({}), req), undefined)
+  assert.equal(hostRejection({ get: () => { throw new Error('no service') } }, req), undefined)
+  assert.equal(hostRejection(host({ requestRejection: () => { throw new Error('boom') } }), req), 403)
+  const self = { secret: 403, requestRejection() { return this.secret } }
+  assert.equal(hostRejection(host(self), req), 403)
 })

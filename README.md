@@ -57,7 +57,7 @@ dsh --profile web
 | `client.js` | 浏览器半区：侧栏入口（有新明信片时亮小点）、港口画面、明信片（SVG 插画）、册子、海图、设置 |
 | `test/` | `npm test` |
 
-写接口只接受同源、带 `x-whale-voyage: 1` 头的请求。
+两个接口都先过 DSH 自己的访问检查（Host / Origin 围栏和浏览器登录，和 DSH 自家接口是同一道）；写接口另外只接受同源、带 `x-whale-voyage: 1` 头的请求。
 
 ## 还没做
 
